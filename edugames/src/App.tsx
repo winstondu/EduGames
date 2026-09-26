@@ -1,122 +1,130 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+/**
+ * App shell: History-API routing between the launcher (`/`) and lazily
+ * loaded game screens (`/<gameId>?gen=<generatorId>&…`).
+ */
+import { Component, Suspense, lazy, useEffect, type ComponentType, type LazyExoticComponent, type ReactNode } from 'react'
+import { findGame } from './games/registry'
+import type { GameDefinition, GameProps } from './games/types'
+import { Launcher } from './launcher/Launcher'
+import { Link } from './launcher/Link'
+import { navigate, useLocation } from './launcher/nav'
+import { launcherUrl, parseRoute } from './launcher/urls'
 
-function App() {
-  const [count, setCount] = useState(0)
+const lazyGames = new Map<string, LazyExoticComponent<ComponentType<GameProps>>>()
 
+function lazyGame(game: GameDefinition): LazyExoticComponent<ComponentType<GameProps>> {
+  let screen = lazyGames.get(game.id)
+  if (!screen) {
+    screen = lazy(game.load)
+    lazyGames.set(game.id, screen)
+  }
+  return screen
+}
+
+export default function App() {
+  const { pathname, search } = useLocation()
+  const route = parseRoute(pathname)
+
+  const docTitle = route.kind === 'game' ? `${findGame(route.gameId)?.name ?? 'Lost in space'} · EduGames` : 'EduGames'
+  useEffect(() => {
+    document.title = docTitle
+  }, [docTitle])
+
+  if (route.kind === 'launcher') return <Launcher search={search} />
+
+  const game = route.gameId ? findGame(route.gameId) : undefined
+  if (!game) {
+    return (
+      <AppMessage title="Lost in space!" action={<Link className="btn btn--primary" href="/">Back to games</Link>}>
+        We couldn't find that game.
+      </AppMessage>
+    )
+  }
+
+  const params = new URLSearchParams(search)
+  const generatorId = params.get('gen')
+  if (!generatorId) return <Redirect to={launcherUrl(game.id)} />
+
+  return <GameRoute key={pathname + search} game={game} generatorId={generatorId} params={params} />
+}
+
+function GameRoute({ game, generatorId, params }: { game: GameDefinition; generatorId: string; params: URLSearchParams }) {
+  // lazyGame() memoizes per game id, so the component identity is stable across renders.
+  const Screen = lazyGame(game)
+  const exit = () => navigate(launcherUrl(game.id, generatorId))
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    <LoadErrorBoundary onRetry={() => lazyGames.delete(game.id)}>
+      <Suspense fallback={<AppLoading label={`Loading ${game.name}…`} />}>
+        {/* eslint-disable-next-line react/static-components */}
+        <Screen generatorId={generatorId} params={params} onExit={exit} />
+      </Suspense>
+    </LoadErrorBoundary>
   )
 }
 
-export default App
+function Redirect({ to }: { to: string }) {
+  useEffect(() => navigate(to, { replace: true }), [to])
+  return null
+}
+
+function AppLoading({ label }: { label: string }) {
+  return (
+    <div className="screen-center" role="status" aria-live="polite">
+      <div className="message-card">
+        <div className="loader" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <p>{label}</p>
+      </div>
+    </div>
+  )
+}
+
+function AppMessage({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
+  return (
+    <main className="screen-center">
+      <div className="panel message-card" role="alert">
+        <h1 className="comic-title">{title}</h1>
+        <p>{children}</p>
+        {action}
+      </div>
+    </main>
+  )
+}
+
+/** Catches a failed game-chunk download (offline, new deploy) and offers a retry. */
+class LoadErrorBoundary extends Component<{ children: ReactNode; onRetry(): void }, { failed: boolean }> {
+  state = { failed: false }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  retry = () => {
+    this.props.onRetry()
+    this.setState({ failed: false })
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children
+    return (
+      <AppMessage
+        title="Houston, a problem!"
+        action={
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button type="button" className="btn btn--primary" onClick={this.retry}>
+              Try again
+            </button>
+            <Link className="btn" href="/">
+              Back to games
+            </Link>
+          </div>
+        }
+      >
+        The game didn't load. Check your connection and try again.
+      </AppMessage>
+    )
+  }
+}
