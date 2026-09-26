@@ -75,6 +75,14 @@ Review/fix pass not run.
    - Verify: play a full lockstep session through `window.__edugames` (unrecorded), and
      confirm `dist/` contains no harness code (grep for `__edugames`).
 
+## Feature TODO
+
+- **Drag to steer** (user request): mouse/touch drag on the stage moves the ship between
+  lanes, snapping cleanly — lane changes as the pointer crosses into a lane (with a little
+  hysteresis at the boundaries so it doesn't jitter), the ship eases into the lane like
+  keyboard moves, taps keep working. Pointer capture so drags that leave the canvas still
+  track; don't start a drag from buttons / choice strip / keypad.
+
 ## Decisions from the user (don't re-litigate)
 
 - Generators are plugins selected by URL (`?gen=…`), hosted by the API, never bundled
