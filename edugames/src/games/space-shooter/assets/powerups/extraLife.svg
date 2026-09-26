@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="30.5" fill="#ff5a5f" fill-opacity="0.22"/>
+  <circle cx="32" cy="32" r="29.5" fill="none" stroke="#ff5a5f" stroke-opacity="0.6" stroke-width="2"/>
+  <clipPath id="pu-heart"><path d="M32 54 C23 47.5 10 40 10 26 C10 18 16 12 23 12 C27 12 30 14.5 32 18 C34 14.5 37 12 41 12 C48 12 54 18 54 26 C54 40 41 47.5 32 54 Z" clip-rule="nonzero"/></clipPath>
+  <path d="M32 54 C23 47.5 10 40 10 26 C10 18 16 12 23 12 C27 12 30 14.5 32 18 C34 14.5 37 12 41 12 C48 12 54 18 54 26 C54 40 41 47.5 32 54 Z" fill="#c42b45" fill-rule="nonzero"/>
+  <g clip-path="url(#pu-heart)"><path d="M32 54 C23 47.5 10 40 10 26 C10 18 16 12 23 12 C27 12 30 14.5 32 18 C34 14.5 37 12 41 12 C48 12 54 18 54 26 C54 40 41 47.5 32 54 Z" fill="#ff4d5e" fill-rule="nonzero" transform="translate(-3 -3)"/></g>
+  <path d="M32 54 C23 47.5 10 40 10 26 C10 18 16 12 23 12 C27 12 30 14.5 32 18 C34 14.5 37 12 41 12 C48 12 54 18 54 26 C54 40 41 47.5 32 54 Z" fill="none" stroke="#1b1b2f" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+  <ellipse cx="20.5" cy="21" rx="5" ry="3" fill="#ffffff" transform="rotate(-40 20.5 21)"/>
+  <circle cx="15.5" cy="28" r="1.8" fill="#ffffff"/>
+</svg>

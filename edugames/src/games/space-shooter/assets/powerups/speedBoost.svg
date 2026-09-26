@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="30.5" fill="#3ecf6b" fill-opacity="0.22"/>
+  <circle cx="32" cy="32" r="29.5" fill="none" stroke="#3ecf6b" stroke-opacity="0.6" stroke-width="2"/>
+  <clipPath id="pu-speed"><path d="M19 9.5 L45 9.5 Q54.5 9.5 54.5 19 L54.5 45 Q54.5 54.5 45 54.5 L19 54.5 Q9.5 54.5 9.5 45 L9.5 19 Q9.5 9.5 19 9.5 Z" clip-rule="nonzero"/></clipPath>
+  <path d="M19 9.5 L45 9.5 Q54.5 9.5 54.5 19 L54.5 45 Q54.5 54.5 45 54.5 L19 54.5 Q9.5 54.5 9.5 45 L9.5 19 Q9.5 9.5 19 9.5 Z" fill="#a8d9b0" fill-rule="nonzero"/>
+  <g clip-path="url(#pu-speed)"><path d="M19 9.5 L45 9.5 Q54.5 9.5 54.5 19 L54.5 45 Q54.5 54.5 45 54.5 L19 54.5 Q9.5 54.5 9.5 45 L9.5 19 Q9.5 9.5 19 9.5 Z" fill="#e4f9e4" fill-rule="nonzero" transform="translate(-3 -3)"/></g>
+  <path d="M19 9.5 L45 9.5 Q54.5 9.5 54.5 19 L54.5 45 Q54.5 54.5 45 54.5 L19 54.5 Q9.5 54.5 9.5 45 L9.5 19 Q9.5 9.5 19 9.5 Z" fill="none" stroke="#1b1b2f" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M17 21 L28 32 L17 43 M32 21 L43 32 L32 43" fill="none" stroke="#1b1b2f" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M17 21 L28 32 L17 43 M32 21 L43 32 L32 43" fill="none" stroke="#3ecf6b" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+  <ellipse cx="16.5" cy="16" rx="3.4" ry="1.8" fill="#ffffff" transform="rotate(-35 16.5 16)"/>
+</svg>

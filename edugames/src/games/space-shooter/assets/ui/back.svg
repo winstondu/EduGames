@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <clipPath id="ui-back"><path d="M5 24 L22 8 L22 17 L41 17 Q43 17 43 19 L43 29 Q43 31 41 31 L22 31 L22 40 Z" clip-rule="nonzero"/></clipPath>
+  <path d="M5 24 L22 8 L22 17 L41 17 Q43 17 43 19 L43 29 Q43 31 41 31 L22 31 L22 40 Z" fill="#d9c79f" fill-rule="nonzero"/>
+  <g clip-path="url(#ui-back)"><path d="M5 24 L22 8 L22 17 L41 17 Q43 17 43 19 L43 29 Q43 31 41 31 L22 31 L22 40 Z" fill="#fff6e0" fill-rule="nonzero" transform="translate(-3 -3)"/></g>
+  <path d="M5 24 L22 8 L22 17 L41 17 Q43 17 43 19 L43 29 Q43 31 41 31 L22 31 L22 40 Z" fill="none" stroke="#1b1b2f" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>
