@@ -3,6 +3,7 @@ import type { AnswerInputSpec, CheckResult, Problem, ProblemFormat, ProblemSourc
 import { createRng } from '../../../shared/rng'
 import {
   CHECK_TIMEOUT_SECONDS,
+  MAX_CHOICES,
   MAX_LIVES,
   SHIELD_HITS,
   START_LIVES,
@@ -334,6 +335,22 @@ describe('targeting and input', () => {
     expect(fired).toMatchObject({ type: 'fired', lane: shipLane(engine), display: '2' })
     const bolt = engine.state.bolts[0]
     expect(bolt).toMatchObject({ id: fired.boltId, given: 'p1-c2', display: '2', x: WORLD.shipX + WORLD.shipHalfLength })
+  })
+
+  test('never shows more than MAX_CHOICES choices, even if a plugin sends more', () => {
+    const base = fakeSource(() => 'multiple-choice')
+    const wide: FakeSource = {
+      ...base,
+      next(level) {
+        const p = base.next(level)
+        return { ...p, choices: Array.from({ length: 7 }, (_, i) => ({ id: `${p.id}-w${i}`, text: `w${i}` })) }
+      },
+    }
+    const { engine } = makeEngine({ problems: wide })
+    firstAsteroidInShipLane(engine)
+    expect(engine.state.inputMode).toBe('multiple-choice')
+    expect(engine.state.choices.map((c) => c.text)).toEqual(['w0', 'w1', 'w2', 'w3'].slice(0, MAX_CHOICES))
+    expect(engine.dispatch({ type: 'choose', index: MAX_CHOICES })).toEqual([])
   })
 
   test('revision bumps on HUD changes', () => {

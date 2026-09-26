@@ -44,11 +44,12 @@ src/shared/                rng, apiBase, highscores API types + client
 api/                       API Worker → https://api.games.winstondu.com (own wrangler.jsonc)
   src/index.ts             router + CORS: /v1/scores (D1), /v1/generators (manifest), /plugins/* (modules)
   src/generators/          server halves of hybrid plugins (kindermath.ts)
+  src/ratelimit.ts         per-client limits (Workers `ratelimits` binding) for uncached upstream routes
   migrations/              D1 schema
 ```
 
-Dependency rule: `engine` → `generators/types` only. `render` → `engine`,
-`assets`, `shared/kit`, `shared/mathtext`, excalibur. `ui` → everything except
+Dependency rule: `engine` → `generators/types` and `shared/rng` only. `render` →
+`engine`, `assets`, `shared/kit`, `shared/mathtext`, `shared/rng`, excalibur. `ui` → everything except
 concrete generators. Generators import only `generators/types`, `shared/rng`,
 `shared/mathtext` — never games, React, or Excalibur. Nothing under
 `src/generators/` or `api/` may mention a specific game.

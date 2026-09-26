@@ -1,7 +1,7 @@
 /** Target selection and the input mode that follows from it. */
 import type { EngineContext } from './context'
 import { collisionLane, emit, touch } from './context'
-import { WORLD, type AsteroidState, type GameState } from './types'
+import { MAX_CHOICES, WORLD, type AsteroidState, type GameState } from './types'
 
 /** Nearest non-pending asteroid ahead of the ship in its collision lane. */
 export function findTarget(state: GameState): AsteroidState | null {
@@ -25,7 +25,8 @@ export function updateTarget(ctx: EngineContext): void {
   if (target) {
     const p = target.problem
     s.inputMode = p.format
-    s.choices = p.format === 'multiple-choice' ? (p.choices ?? []).slice() : []
+    // Plugins honor requirements.maxChoices; slice anyway so the strip never overflows.
+    s.choices = p.format === 'multiple-choice' ? (p.choices ?? []).slice(0, MAX_CHOICES) : []
     s.input = p.input ?? ctx.config.defaultInput
   } else {
     s.inputMode = null

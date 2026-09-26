@@ -5,6 +5,7 @@ import {
   extractLabel,
   mapPool,
   toLevel,
+  TYPED_INPUT,
   toProblem,
   type KinderQuestion,
 } from './mapping'
@@ -64,11 +65,21 @@ describe('toProblem', () => {
     expect(p.label).toBe('4x + 6x')
     expect(p.hint).toBe('Add the coefficients.')
   })
-  test('maps TYPED to freeform with the extended input spec', () => {
+  test('maps TYPED to freeform with the expression text spec', () => {
     const p = toProblem(typed)!
     expect(p.format).toBe('freeform')
-    expect(p.input).toEqual({ kind: 'text', maxLength: 12, allow: '-./x^' })
+    expect(p.input).toEqual({ kind: 'text', maxLength: 16, allow: '-./x^=+()' })
     expect(p.label).toBeUndefined()
+  })
+  test("TYPED answer hint: 'number' → numeric pad; 'expression' / 'text' / unknown → text", () => {
+    expect(toProblem({ ...typed, answer: 'number' })!.input).toEqual({ kind: 'numeric', maxLength: 8, allow: '-./' })
+    for (const answer of ['expression', 'text', 'fraction', undefined]) {
+      expect(toProblem({ ...typed, answer: answer as KinderQuestion['answer'] })!.input).toEqual({ ...TYPED_INPUT })
+    }
+    // Each problem gets its own spec object (hosts may not mutate a shared constant).
+    expect(toProblem(typed)!.input).not.toBe(toProblem(typed)!.input)
+    // MCQs ignore the hint.
+    expect(toProblem({ ...mcq, answer: 'number' })!.input).toBeUndefined()
   })
   test('rejects MCQ without choices', () => {
     expect(toProblem({ id: 'x', kind: 'MCQ', prompt: '$1$' })).toBeNull()
@@ -81,14 +92,41 @@ describe('toProblem', () => {
 
 describe('mapPool', () => {
   test('filters to accepted formats', () => {
-    const only = mapPool([mcq, typed], ['freeform'])
+    const only = mapPool([mcq, typed], { formats: ['freeform'] })
     expect(only.map((p) => p.id)).toEqual(['q-typed'])
-    const both = mapPool([mcq, typed], ['freeform', 'multiple-choice'])
+    const both = mapPool([mcq, typed], { formats: ['freeform', 'multiple-choice'] })
     expect(both).toHaveLength(2)
   })
   test('drops malformed entries', () => {
     const bad = { id: 'b', kind: 'MCQ', prompt: 'x' } as KinderQuestion
-    expect(mapPool([bad, typed], ['freeform', 'multiple-choice'])).toHaveLength(1)
+    expect(mapPool([bad, typed], { formats: ['freeform', 'multiple-choice'] })).toHaveLength(1)
+  })
+  test('drops (never truncates) MCQs with more choices than maxChoices', () => {
+    const five: KinderQuestion = {
+      id: 'q-five',
+      kind: 'MCQ',
+      prompt: 'Pick one',
+      choices: ['a', 'b', 'c', 'd', 'e'].map((id) => ({ id, text: id.toUpperCase() })),
+    }
+    const both = { formats: ['freeform', 'multiple-choice'] as const }
+    expect(mapPool([five, mcq, typed], { ...both, maxChoices: 4 }).map((p) => p.id).sort()).toEqual(['q-mcq', 'q-typed'])
+    expect(mapPool([five, mcq, typed], { ...both, maxChoices: 5 })).toHaveLength(3)
+    expect(mapPool([five, mcq, typed], both)).toHaveLength(3)
+    // Below two choices multiple-choice can't be shown at all.
+    expect(mapPool([five, mcq, typed], { ...both, maxChoices: 1 }).map((p) => p.id)).toEqual(['q-typed'])
+  })
+  test('sorts by id so seeded runs reproduce whatever order upstream returned', () => {
+    const qs: KinderQuestion[] = ['q3', 'q10', 'q1', 'q2', 'Q0'].map((id, i) => ({ id, kind: 'TYPED', prompt: `p${id}`, difficulty: 1 + (i % 2) }))
+    const reqs = { formats: ['freeform'] as const }
+    const a = mapPool(qs, reqs)
+    const b = mapPool([...qs].reverse(), reqs)
+    expect(a.map((p) => p.id)).toEqual(['Q0', 'q1', 'q10', 'q2', 'q3'])
+    expect(b).toEqual(a)
+    const run = (pool: typeof a) => {
+      const picker = createPicker(pool, createRng(7))
+      return Array.from({ length: 12 }, (_, i) => picker.next(1 + (i % 2)).id)
+    }
+    expect(run(b)).toEqual(run(a))
   })
 })
 

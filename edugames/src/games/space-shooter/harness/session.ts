@@ -4,8 +4,9 @@
  * hybrid generators can't create a source here.
  */
 import { createRng } from '../../../shared/rng'
-import type { GeneratorContext, GeneratorPlugin, ProblemFormat, ProblemSource } from '../../../generators/types'
+import type { GeneratorContext, GeneratorPlugin, ProblemFormat, ProblemRequirements, ProblemSource } from '../../../generators/types'
 import { createEngine, type Engine } from '../engine'
+import { MAX_CHOICES } from '../engine/types'
 import { deriveSeeds } from '../seeds'
 
 /**
@@ -17,6 +18,9 @@ export const DEFAULT_LANES = 4
 
 /** Formats the space shooter presents (mirrors its GameDefinition). */
 export const SHOOTER_FORMATS: readonly ProblemFormat[] = ['freeform', 'multiple-choice']
+
+/** Requirements the space shooter passes to create() (mirrors its GameDefinition). */
+export const SHOOTER_REQUIREMENTS: ProblemRequirements = { formats: SHOOTER_FORMATS, maxChoices: MAX_CHOICES }
 
 export { deriveSeeds }
 
@@ -49,7 +53,7 @@ export async function createShooterSession(opts: ShooterSessionOptions): Promise
   const seeds = deriveSeeds(seed)
   const abort = new AbortController()
   const ctx: GeneratorContext = { rng: createRng(seeds.generator), signal: abort.signal, api: opts.api ?? offline }
-  const source = await plugin.create(options, ctx, { formats: SHOOTER_FORMATS })
+  const source = await plugin.create(options, ctx, SHOOTER_REQUIREMENTS)
   const lanes = opts.lanes ?? DEFAULT_LANES
   const engine = createEngine({ lanes, problems: source, defaultInput: plugin.defaultInput, maxLevel: plugin.maxLevel, seed: seeds.engine })
   return {

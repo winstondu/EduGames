@@ -1,4 +1,4 @@
-/** Multiple-choice options: the answer plus three plausible distractors. */
+/** Multiple-choice options: the answer plus (up to) three plausible distractors. */
 import type { Choice } from '../types'
 import { shuffle, type Rng } from '../../shared/rng'
 import { OPS } from './options'
@@ -42,8 +42,12 @@ export function distractors(rng: Rng, q: Question, count = 3): number[] {
   return out
 }
 
-/** Four choices (ids 'a'..'d') with the correct one at a random position. */
-export function makeChoices(rng: Rng, q: Question): Choice[] {
-  const values = shuffle(rng, [q.answer, ...distractors(rng, q, CHOICE_IDS.length - 1)])
+/**
+ * `count` choices (default four, ids 'a'..'d') with the correct one at a random position.
+ * `count` is clamped to 2..4 (a game may allow fewer choices than we'd like to show).
+ */
+export function makeChoices(rng: Rng, q: Question, count: number = CHOICE_IDS.length): Choice[] {
+  const n = Math.max(2, Math.min(CHOICE_IDS.length, Math.floor(count) || CHOICE_IDS.length))
+  const values = shuffle(rng, [q.answer, ...distractors(rng, q, n - 1)])
   return values.map((n, i) => ({ id: CHOICE_IDS[i], text: String(n) }))
 }

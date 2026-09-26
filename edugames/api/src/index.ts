@@ -16,8 +16,6 @@ export interface Env extends GeneratorEnv {
   DB: D1Database
   /** Comma-separated browser origins allowed by CORS, e.g. "https://games.winstondu.com". */
   ALLOWED_ORIGINS: string
-  /** Optional secret salt for hashing client IPs (rate limiting). */
-  IP_HASH_SALT?: string
 }
 
 const ALLOWED_METHODS = 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS'

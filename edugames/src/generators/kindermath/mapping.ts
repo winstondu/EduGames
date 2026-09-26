@@ -3,7 +3,7 @@
  * host `Problem`s, label extraction, and the level-aware picker. DOM-free and
  * side-effect-free so it can be unit-tested with a seeded rng.
  */
-import type { Problem, ProblemFormat } from '../types'
+import { choiceLimit, usableFormats, type AnswerInputSpec, type Problem, type ProblemRequirements } from '../types'
 import { shuffle, type Rng } from '../../shared/rng'
 
 /** One question as returned by our server half (mirrors api.kindermath.org). */
@@ -14,10 +14,27 @@ export interface KinderQuestion {
   choices?: { id: string; text: string }[]
   hint?: string
   difficulty?: number
+  /**
+   * Optional answer-kind hint for TYPED questions (upstream may not send it yet):
+   * 'number' → numeric pad; 'expression' / 'text' / absent / unknown → text input.
+   */
+  answer?: 'number' | 'expression' | 'text'
 }
 
-/** Input spec used for TYPED (freeform) problems — a superset of the plugin default. */
-export const TYPED_INPUT = { kind: 'text', maxLength: 12, allow: '-./x^' } as const
+/**
+ * Input for TYPED questions without a 'number' hint — a superset of the plugin default.
+ * Letters, digits and space are always accepted for text; `allow` adds the math symbols so
+ * "x = 3", "2(x+1)" and "x^2 - 1/2" can be typed.
+ */
+export const TYPED_INPUT = { kind: 'text', maxLength: 16, allow: '-./x^=+()' } as const satisfies AnswerInputSpec
+
+/** Input for TYPED questions hinted `answer: 'number'`: the numeric pad, incl. negatives, decimals, fractions. */
+export const TYPED_NUMBER_INPUT = { kind: 'numeric', maxLength: 8, allow: '-./' } as const satisfies AnswerInputSpec
+
+/** Input spec for a TYPED question, from its optional answer-kind hint. */
+export function typedInput(q: Pick<KinderQuestion, 'answer'>): AnswerInputSpec {
+  return q.answer === 'number' ? { ...TYPED_NUMBER_INPUT } : { ...TYPED_INPUT }
+}
 
 const MATH_SEGMENT = /\$([^$]+)\$/g
 
@@ -59,23 +76,34 @@ export function toProblem(q: KinderQuestion): Problem | null {
     return { ...base, format: 'multiple-choice', choices }
   }
   if (q.kind === 'TYPED') {
-    return { ...base, format: 'freeform', input: { ...TYPED_INPUT } }
+    return { ...base, format: 'freeform', input: typedInput(q) }
   }
   return null
 }
 
 /**
- * Map a pool of upstream questions to host Problems compatible with the game's
- * accepted `formats`. Drops malformed and incompatible entries.
+ * Map a pool of upstream questions to host Problems the game can present
+ * (`requirements`). Drops malformed and incompatible entries.
+ *
+ * MCQs with more choices than `requirements.maxChoices` are DROPPED, not
+ * truncated: answers are checked server-side, so the browser half doesn't know
+ * which choice is correct and truncating could remove it.
+ *
+ * The result is sorted by id: the server half unions random upstream pulls, so
+ * arrival order varies between loads, and a seeded picker must see the same
+ * pool order for replays to reproduce.
  */
-export function mapPool(questions: KinderQuestion[], formats: readonly ProblemFormat[]): Problem[] {
-  const allowed = new Set(formats)
+export function mapPool(questions: KinderQuestion[], requirements: ProblemRequirements): Problem[] {
+  const allowed = new Set(usableFormats(requirements))
+  const maxChoices = choiceLimit(requirements)
   const out: Problem[] = []
   for (const q of questions) {
     const p = toProblem(q)
-    if (p && allowed.has(p.format)) out.push(p)
+    if (!p || !allowed.has(p.format)) continue
+    if (p.choices && p.choices.length > maxChoices) continue
+    out.push(p)
   }
-  return out
+  return out.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
 }
 
 /**

@@ -15,6 +15,7 @@ import { DEFAULT_ADVANCE_SECONDS } from './adapter'
 import { BOT_NAMES, type BotName } from './bots'
 import { runReplay, type PluginLoader } from './replay'
 import { openHeadless, runBotGame, type Headless } from './runner'
+import { SHOOTER_REQUIREMENTS } from './session'
 import { describe } from './snapshot'
 
 export interface ToolSpec {
@@ -255,7 +256,7 @@ export function createHarnessTools(options: HarnessToolsOptions): HarnessTools {
           const variants = p.listVariants ? await p.listVariants(offlineCtx).catch(() => []) : []
           cases = variants.length ? variants.map((v) => ({ params: v.params })) : [{ params: {} }]
         }
-        return checkConformance(p, { cases })
+        return checkConformance(p, { cases, maxChoices: SHOOTER_REQUIREMENTS.maxChoices })
       }
     }
     throw new ToolError(`unknown tool "${name}"`)

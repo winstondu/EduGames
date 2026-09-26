@@ -10,6 +10,7 @@
  * upstream — client cookies/headers are never forwarded, and upstream
  * cookies/auth headers are never returned to the browser.
  */
+import { rateLimit } from '../ratelimit'
 import type { GeneratorEnv, GeneratorServer } from './types'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -126,7 +127,10 @@ async function upstreamJson<T>(env: GeneratorEnv, path: string, init?: RequestIn
   }
 }
 
-/** Cache a computed JSON response by request URL at the edge. */
+/**
+ * Cache a computed JSON response at the edge, keyed by origin + pathname only: no route reads the query
+ * string, so `?x=1` must not mint a fresh key (that would let anyone bypass the cache and hit upstream).
+ */
 async function cached(
   request: Request,
   ctx: ExecutionContext,
@@ -134,7 +138,8 @@ async function cached(
   build: () => Promise<Response>,
 ): Promise<Response> {
   const cache = caches.default
-  const key = new Request(request.url, { method: 'GET' })
+  const { origin, pathname } = new URL(request.url)
+  const key = new Request(`${origin}${pathname}`, { method: 'GET' })
   const hit = await cache.match(key)
   if (hit) return hit
   const res = await build()
@@ -157,6 +162,7 @@ async function readJsonBody(request: Request): Promise<unknown> {
 
 class BadRequest extends Error {}
 
+/** Upstream practice question; passed through as-is (unknown fields included, e.g. an `answer` kind hint). */
 interface KinderQuestion {
   id: string
   kind: string
@@ -164,13 +170,17 @@ interface KinderQuestion {
   choices?: { id: string; text: string }[]
   hint?: string
   difficulty?: number
+  /** Optional answer-kind hint for TYPED questions ('number' | 'expression' | 'text'); the browser half maps it. */
+  answer?: string
 }
 
-/** Pull practice several times and union by question id (each pull is a random subset). */
+/** Pull practice several times (in parallel) and union by question id (each pull is a random subset). */
 async function buildPool(env: GeneratorEnv, id: string): Promise<KinderQuestion[]> {
   const byId = new Map<string, KinderQuestion>()
-  for (let i = 0; i < POOL_PULLS; i++) {
-    const batch = await upstreamJson<KinderQuestion[]>(env, `lessons/${id}/practice`)
+  const batches = await Promise.all(
+    Array.from({ length: POOL_PULLS }, () => upstreamJson<KinderQuestion[]>(env, `lessons/${id}/practice`)),
+  )
+  for (const batch of batches) {
     if (!Array.isArray(batch)) continue
     for (const q of batch) {
       if (q && typeof q.id === 'string' && !byId.has(q.id)) byId.set(q.id, q)
@@ -225,6 +235,8 @@ export const kindermathServer: GeneratorServer = {
       // POST check {questionId, given}
       if (parts.length === 1 && parts[0] === 'check') {
         if (method !== 'POST') return errorJson(405, 'method not allowed')
+        const limited = await rateLimit(env.GENERATOR_CHECK_LIMITER, request, 'kindermath:check', env.IP_HASH_SALT)
+        if (limited) return limited
         const body = (await readJsonBody(request)) as { questionId?: unknown; given?: unknown }
         const questionId = body.questionId
         const given = body.given
@@ -245,12 +257,16 @@ export const kindermathServer: GeneratorServer = {
       // GET session
       if (parts.length === 1 && parts[0] === 'session') {
         if (method !== 'GET') return errorJson(405, 'method not allowed')
+        const limited = await rateLimit(env.GENERATOR_SESSION_LIMITER, request, 'kindermath:session', env.IP_HASH_SALT)
+        if (limited) return limited
         return json(await sessionStatus(env))
       }
 
       // POST login / POST logout — stub placeholders
       if (parts.length === 1 && (parts[0] === 'login' || parts[0] === 'logout')) {
         if (method !== 'POST') return errorJson(405, 'method not allowed')
+        const limited = await rateLimit(env.GENERATOR_SESSION_LIMITER, request, 'kindermath:session', env.IP_HASH_SALT)
+        if (limited) return limited
         if (parts[0] === 'login') await readJsonBody(request) // validate size/shape, ignore creds
         const status = await sessionStatus(env)
         return json({

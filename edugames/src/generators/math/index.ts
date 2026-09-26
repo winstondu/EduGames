@@ -10,8 +10,11 @@ import {
   type ProblemFormat,
   type ProblemRequirements,
   type ProblemSource,
+  choiceLimit,
+  usableFormats,
 } from '../types'
 import { check } from './checker'
+import { CHOICE_IDS } from './choices'
 import { MAX_LEVEL, makeQuestion, toProblem } from './generator'
 import {
   boardKey,
@@ -30,8 +33,9 @@ const DEFAULT_INPUT: AnswerInputSpec = { kind: 'numeric', maxLength: 3 }
 
 /** The preferred format if the game supports it, else any other we can emit. */
 export function resolveFormat(preferred: ProblemFormat, requirements: ProblemRequirements): ProblemFormat {
-  if (requirements.formats.includes(preferred)) return preferred
-  const fallback = FORMATS.find((f) => requirements.formats.includes(f))
+  const usable = usableFormats(requirements)
+  if (usable.includes(preferred)) return preferred
+  const fallback = FORMATS.find((f) => usable.includes(f))
   if (!fallback) throw new IncompatibleGeneratorError('Math problems need freeform or multiple-choice answers.')
   return fallback
 }
@@ -59,11 +63,12 @@ const plugin: GeneratorPlugin<MathOptions> = {
   async create(options, ctx, requirements): Promise<ProblemSource> {
     const format = resolveFormat(options.format, requirements)
     const ops = normalizeOps(options.ops)
+    const maxChoices = choiceLimit(requirements, CHOICE_IDS.length)
     let count = 0
     return {
       next(level) {
         const q = makeQuestion(ctx.rng, level, ops)
-        return toProblem(ctx.rng, q, level, format, `math-${++count}`)
+        return toProblem(ctx.rng, q, level, format, `math-${++count}`, maxChoices)
       },
       check,
     }

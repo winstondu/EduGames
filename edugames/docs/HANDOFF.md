@@ -99,6 +99,22 @@ Open / next:
   kindermath halves, `ctx.api` isn't path-sandboxed, unlogged 502s, fixture reachable by URL in
   prod, dead `kit/fsm.ts`, README dependency rule omits `shared/rng`, storage-only unrecorded guard.
 
+## Audit fixes (session 5)
+
+- API: per-client rate limits (Workers `ratelimits`: check 30/min, session/login/logout 20/min,
+  `api/src/ratelimit.ts`, 429 + Retry-After); kindermath cache key ignores the query string; pool
+  pulls run in parallel. `bun run test` runs `./src ./api`.
+- `check:dist` inspects `.vite/manifest.json` + `.vite/modules.json` for `harness/` paths and scans for
+  harness-only literals; `deploy` runs it. `public/.assetsignore` keeps `.vite/` out of the deploy.
+- Contract: `ProblemRequirements.maxChoices` (optional), `GameDefinition.maxChoices`,
+  `gameRequirements(game)`. math/fixture shrink choices (correct kept); kindermath drops MCQs over the
+  limit; conformance, engine (`MAX_CHOICES`, defensive slice) and harness derive from it.
+  **Follow-up (ui owner):** `ui/session.ts` still passes `{ formats }` — pass
+  `gameRequirements(game)` (or add `maxChoices`) so browser sessions tell plugins the limit.
+- kindermath: pool sorted by id (seeded replays reproduce); TYPED input is now
+  `{ text, 16, '-./x^=+()' }` (space is accepted by text), and an optional upstream
+  `answer: 'number'` maps to `{ numeric, 8, '-./' }`.
+
 ## Verification layers (the plan)
 
 1. **Generator harness** — TODO: a conformance suite (`src/generators/conformance.ts`)

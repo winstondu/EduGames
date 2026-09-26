@@ -98,13 +98,13 @@ const HINT: Record<Op, (q: Question) => string | undefined> = {
   div: ({ a, b }) => `? × ${b} = ${a}`,
 }
 
-/** Build a Problem of the given format for `q`. */
-export function toProblem(rng: Rng, q: Question, level: number, format: ProblemFormat, id: string): Problem {
+/** Build a Problem of the given format for `q` (multiple-choice: at most `maxChoices` choices, default 4). */
+export function toProblem(rng: Rng, q: Question, level: number, format: ProblemFormat, id: string, maxChoices?: number): Problem {
   const prompt = formatPrompt(q.a, q.op, q.b)
   const problem: Problem = { id, prompt, label: prompt.replace(/ /g, ''), level: clampLevel(level), format }
   const hint = HINT[q.op](q)
   if (hint) problem.hint = hint
-  if (format === 'multiple-choice') problem.choices = makeChoices(rng, q)
+  if (format === 'multiple-choice') problem.choices = makeChoices(rng, q, maxChoices)
   else problem.input = { kind: 'numeric', maxLength: 3 }
   return problem
 }

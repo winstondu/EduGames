@@ -20,6 +20,14 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "edugames", "migrations_dir": "migrations" }
   ],
+  // Per-client abuse guard for generator routes that reach an upstream uncached (api/src/ratelimit.ts).
+  // Keys are salted IP hashes; period must be 10 or 60 s. `wrangler dev` simulates these locally.
+  "ratelimits": [
+    // Answer checks: each one may post a practice attempt upstream. Generous for real play.
+    { "name": "GENERATOR_CHECK_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
+    // Session / login / logout probes.
+    { "name": "GENERATOR_SESSION_LIMITER", "namespace_id": "1002", "simple": { "limit": 20, "period": 60 } }
+  ],
   "vars": {
     "KINDERMATH_API_BASE": "https://api.kindermath.org/v1",
     // STUB auth: demo identity the kindermath server half sends upstream until real per-user login lands.
