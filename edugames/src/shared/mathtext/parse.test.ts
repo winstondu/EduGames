@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { hasMath, mathTextToPlain, parseMath, parseMathText } from './parse'
+import { hasMath, mathTextToPlain, parseMath, parseMathText, unknownMathCommands } from './parse'
 
 describe('parseMathText', () => {
   test('Combine like terms: $4x + 6x$.', () => {
@@ -172,5 +172,13 @@ describe('parseMath', () => {
     expect(parseMath('\\frac{1}{2')).toEqual([{ type: 'frac', num: [{ type: 'num', text: '1' }], den: [{ type: 'num', text: '2' }] }])
     expect(parseMath('x}')).toEqual([{ type: 'var', text: 'x' }])
     expect(parseMath('\\foo')).toEqual([{ type: 'text', text: 'foo' }])
+  })
+})
+
+describe('unknownMathCommands', () => {
+  test('finds unsupported commands inside math only, segmented like the parser', () => {
+    expect(unknownMathCommands('$\\bogus{1} + \\frac{1}{2}$ and \\foo')).toEqual(['bogus'])
+    expect(unknownMathCommands('$a\\\\$ and $\\foo$')).toEqual(['foo'])
+    expect(unknownMathCommands('$\\times \\div \\sqrt{4} \\le \\pi$')).toEqual([])
   })
 })

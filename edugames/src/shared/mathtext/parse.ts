@@ -148,7 +148,8 @@ export function isKnownMathCommand(name: string): boolean {
 /** Unknown TeX command names used inside `$…$` segments (for generator conformance checks). */
 export function unknownMathCommands(input: string): string[] {
   const unknown = new Set<string>()
-  for (const segment of input.matchAll(/\$((?:\\\$|[^$])*)\$/g)) {
+  // Same segmentation as findClosingDollar: a backslash escapes the next character.
+  for (const segment of input.matchAll(/\$((?:\\[\s\S]|[^$\\])*)\$/g)) {
     for (const m of segment[1].matchAll(/\\([A-Za-z]+|[^A-Za-z])/g)) if (!isKnownMathCommand(m[1])) unknown.add(m[1])
   }
   return [...unknown]

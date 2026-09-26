@@ -58,7 +58,12 @@ async function json<T>(ctx: GeneratorContext, path: string, init?: RequestInit):
     throw new KinderApiError(path, 0)
   }
   if (!res.ok) throw new KinderApiError(path, res.status)
-  return (await res.json()) as T
+  try {
+    return (await res.json()) as T
+  } catch {
+    // An HTML error page or truncated body: treat it like a bad gateway.
+    throw new KinderApiError(path, 502)
+  }
 }
 
 export function getCourses(ctx: GeneratorContext): Promise<CourseSummary[]> {

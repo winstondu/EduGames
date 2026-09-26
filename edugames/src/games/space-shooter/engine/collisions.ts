@@ -31,7 +31,11 @@ export function moveAsteroids(ctx: EngineContext, dt: number): void {
 function keepLaneGaps(asteroids: AsteroidState[]): void {
   if (asteroids.length < 2) return
   const byLane = new Map<number, AsteroidState[]>()
-  for (const a of asteroids) byLane.set(a.lane, [...(byLane.get(a.lane) ?? []), a])
+  for (const a of asteroids) {
+    const lane = byLane.get(a.lane)
+    if (lane) lane.push(a)
+    else byLane.set(a.lane, [a])
+  }
   for (const rocks of byLane.values()) {
     if (rocks.length < 2) continue
     rocks.sort((p, q) => p.x - q.x || p.id - q.id)

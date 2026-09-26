@@ -86,6 +86,13 @@ describe('keyToAction', () => {
     expect(key(LETTER('i'), freeform(text), custom)).toEqual(command({ type: 'typeChar', char: 'i' }))
   })
 
+  test('NumLock off: numpad 8/2 follow the arrow bindings', () => {
+    expect(key(ev('ArrowUp', 'Numpad8'), mc)).toEqual(command({ type: 'moveUp' }))
+    expect(key(ev('ArrowDown', 'Numpad2'), freeform())).toEqual(command({ type: 'moveDown' }))
+    // With NumLock on the same key types or chooses as usual.
+    expect(key(ev('2', 'Numpad2'), mc, arrows)).toEqual(command({ type: 'choose', index: 1 }))
+  })
+
   test('modifier chords are never ours', () => {
     expect(key(DIGIT('1'), mc)).not.toBeNull()
     expect(key(ev('1', 'Digit1', { ctrlKey: true }), mc)).toBeNull()

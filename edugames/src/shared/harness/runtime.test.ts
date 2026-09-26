@@ -47,8 +47,32 @@ describe('harness runtime (no window)', () => {
     unregister()
   })
 
+  test('a session only resolves the open() request it was built for', async () => {
+    const navigated: string[] = []
+    const { installHarnessRuntime } = await import('./runtime')
+    ;(globalThis as { window?: unknown }).window ??= globalThis
+    installHarnessRuntime({ navigate: (to) => navigated.push(to), panel: false })
+    const api = (globalThis as unknown as { __edugames: import('./types').HarnessGlobal }).__edugames
+    const opened = api.open({ game: 'g', gen: 'x', seed: 9 })
+    const url = new URL(navigated.at(-1)!, 'http://local')
+    const request = takeOpenRequest('g', 'x', url.searchParams)!
+    expect(request.seed).toBe(9)
+    expect(takeOpenRequest('g', 'x', new URLSearchParams({ harness: 'stale' }))).toBeNull()
+    // A stale session for the same game + generator doesn't resolve it…
+    const stale = registerHarness(entry(fakeHarness()))
+    let settled = false
+    void opened.then(() => (settled = true))
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    stale()
+    // …the one built for the request does.
+    const unregister = registerHarness({ ...entry(fakeHarness()), requestId: request.id })
+    expect((await opened).seed).toBe(1)
+    unregister()
+  })
+
   test('without an open() request there is nothing to claim or fail', () => {
-    expect(takeOpenRequest('g', 'x')).toBeNull()
+    expect(takeOpenRequest('g', 'x', new URLSearchParams())).toBeNull()
     expect(() => reportOpenFailure('g', 'boom')).not.toThrow()
   })
 })

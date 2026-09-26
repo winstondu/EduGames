@@ -6,6 +6,7 @@
  * generators. Game-agnostic: it only talks to GameHarness.
  */
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from 'react'
+import { markUnrecordedForTab } from '../unrecorded'
 import { currentHarness, subscribeHarness, type HarnessEntry } from './runtime'
 import type { HarnessOpenOptions } from './types'
 
@@ -76,6 +77,11 @@ function usePoll(): number {
 
 function SessionView({ entry }: { entry: HarnessEntry }) {
   const { harness } = entry
+  /** Driving the game from the panel makes the run unrecorded (like window.__edugames). */
+  const drive = <T,>(fn: () => T): T => {
+    markUnrecordedForTab()
+    return fn()
+  }
   usePoll()
   const [log, setLog] = useState<{ seq: number; lines: string[] }>({ seq: 0, lines: [] })
   const [command, setCommand] = useState('')
@@ -98,7 +104,7 @@ function SessionView({ entry }: { entry: HarnessEntry }) {
   async function run(e: FormEvent, act: boolean) {
     e.preventDefault()
     const text = command.trim()
-    const result = act ? await harness.act(text || null) : harness.send(text)
+    const result = await drive(() => (act ? harness.act(text || null) : harness.send(text)))
     setReply(result.error ? `error: ${result.error}` : `ok (${result.events.length} events)`)
   }
 
@@ -146,16 +152,16 @@ function SessionView({ entry }: { entry: HarnessEntry }) {
             max={2}
             step={0.05}
             value={harness.time.scale}
-            onChange={(e) => harness.time.setScale(Number(e.target.value))}
+            onChange={(e) => drive(() => harness.time.setScale(Number(e.target.value)))}
           />
         </label>
         <label>
-          <input type="checkbox" checked={harness.time.lockstep} onChange={(e) => harness.time.setLockstep(e.target.checked)} /> lockstep
+          <input type="checkbox" checked={harness.time.lockstep} onChange={(e) => drive(() => harness.time.setLockstep(e.target.checked))} /> lockstep
         </label>
       </div>
       <div className="egh-row">
         {[1, 10, 60].map((n) => (
-          <button key={n} type="button" onClick={() => harness.time.step(n)}>
+          <button key={n} type="button" onClick={() => drive(() => harness.time.step(n))}>
             +{n}
           </button>
         ))}

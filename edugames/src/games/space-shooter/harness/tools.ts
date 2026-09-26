@@ -189,10 +189,11 @@ export function createHarnessTools(options: HarnessToolsOptions): HarnessTools {
       }
       case 'open_session': {
         const p = await plugin(args.gen, { offline: true })
-        close()
         const params = stringRecord(args.params)
         const seed = (optNumber(args.seed) ?? 1) >>> 0
+        // Open first: a failed open keeps the current session.
         const headless = await openHeadless({ plugin: p, params, seed, lanes: optNumber(args.lanes) })
+        close()
         session = { ...headless, gen: p.id }
         return { session: { gen: p.id, params, seed, lanes: headless.session.lanes }, describe: describe(), state: headless.harness.state() }
       }

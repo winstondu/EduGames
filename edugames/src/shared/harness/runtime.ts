@@ -12,6 +12,8 @@ import type { GameHarness, HarnessGlobal, HarnessOpenOptions, HarnessSessionInfo
 
 export interface HarnessEntry extends HarnessSessionInfo {
   harness: GameHarness
+  /** The open() request this session was started for (from takeOpenRequest), if any. */
+  requestId?: string
 }
 
 /** A pending open() the game claims on mount (seed and one-run settings). */
@@ -70,7 +72,8 @@ export function subscribeHarness(listener: () => void): () => void {
 export function registerHarness(entry: HarnessEntry): () => void {
   current = entry
   const request = pending?.request
-  if (request && request.game === entry.game && request.gen === entry.generatorId) {
+  // Only the session built for this request resolves it (not a stale one still finishing its load).
+  if (request && entry.requestId === request.id) {
     if (request.speed !== undefined) entry.harness.time.setScale(request.speed)
     if (request.lockstep !== undefined) entry.harness.time.setLockstep(request.lockstep)
     settle((p) => p.resolve(infoOf(entry)))
@@ -84,12 +87,14 @@ export function registerHarness(entry: HarnessEntry): () => void {
 }
 
 /**
- * The open() request for this game + generator still waiting for its
- * session, if any (idempotent: remounts see it again until it resolves).
+ * The open() request still waiting for its session, if the route was opened
+ * for it: `params` must carry its id in OPEN_PARAM (idempotent: remounts see
+ * it again until it resolves; back/forward to an older open URL doesn't).
  */
-export function takeOpenRequest(game: string, generatorId: string): OpenRequest | null {
+export function takeOpenRequest(game: string, generatorId: string, params: URLSearchParams): OpenRequest | null {
   const request = pending?.request
-  return request && request.game === game && request.gen === generatorId ? request : null
+  if (!request || request.game !== game || request.gen !== generatorId) return null
+  return params.get(OPEN_PARAM) === request.id ? request : null
 }
 
 /** The game couldn't start the requested session (bad generator, plugin error). */

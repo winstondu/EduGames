@@ -35,6 +35,12 @@ describe('harness tools', () => {
     expect((replayed.value as { state: unknown }).state).toEqual(state)
   })
 
+  test('a failed open_session keeps the current session', async () => {
+    await tools.call('open_session', { gen: 'math', seed: 2 })
+    expect((await tools.call('open_session', { gen: 'kindermath' })).isError).toBe(true)
+    expect((await tools.call('state', {})).isError).toBeFalsy()
+  })
+
   test('errors come back as isError results, not throws', async () => {
     expect((await tools.call('act', {})).isError).toBe(true) // no session
     expect((await tools.call('open_session', { gen: 'nope' })).isError).toBe(true)

@@ -25,6 +25,8 @@ export interface BrowserHarnessOptions {
   seed: number
   /** Game settings recorded in replays and shown in the meta panel (lanes, direction, ship, speed). */
   settings: Record<string, string | number | boolean>
+  /** window.__edugames.open() request this session was built for, if any. */
+  requestId?: string
   getView(): GameView | null
   /** The view is frozen (game paused or over): steps must run directly. */
   isPaused(): boolean
@@ -88,6 +90,7 @@ export function createBrowserHarness(options: BrowserHarnessOptions): BrowserHar
         params: options.params,
         seed: options.seed,
         settings: options.settings,
+        requestId: options.requestId,
       })
     },
     dispose() {

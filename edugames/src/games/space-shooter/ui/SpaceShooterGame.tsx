@@ -96,8 +96,9 @@ export default function SpaceShooterGame({ generatorId, params, onExit }: GamePr
   const [settings, setSettings] = useState(loadSettings)
   const [run, setRun] = useState(0)
   const [seed, setSeed] = useState(randomSeed)
-  // DEV harness open(): settings for its runs only (never saved).
+  // DEV harness open(): settings for its runs only (never saved), and the request the first run answers.
   const [harnessSettings, setHarnessSettings] = useState<GameSettings | null>(null)
+  const [harnessRequestId, setHarnessRequestId] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     if (run === 0) audio?.music('menu')
@@ -108,8 +109,9 @@ export default function SpaceShooterGame({ generatorId, params, onExit }: GamePr
     if (!import.meta.env.DEV) return
     let live = true
     void import('../../../shared/harness/runtime').then((runtime) => {
-      const request = live ? runtime.takeOpenRequest(GAME_ID, generatorId) : null
+      const request = live ? runtime.takeOpenRequest(GAME_ID, generatorId, params) : null
       if (!request) return
+      setHarnessRequestId(request.id)
       setHarnessSettings(sanitizeSettings({ ...loadSettings(), ...request.settings }))
       setSeed(request.seed ?? randomSeed())
       setRun((n) => n + 1)
@@ -117,6 +119,8 @@ export default function SpaceShooterGame({ generatorId, params, onExit }: GamePr
     return () => {
       live = false
     }
+    // params identity changes per render; the route (and so this screen) is keyed by the URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generatorId])
 
   const setupError = setup.state === 'error' ? `${setup.title} ${setup.message}` : null
@@ -130,10 +134,10 @@ export default function SpaceShooterGame({ generatorId, params, onExit }: GamePr
   }
 
   function start(next?: GameSettings) {
-    if (next) {
-      changeSettings(next)
-      setHarnessSettings(null)
-    }
+    // A harness run's settings stay one-run settings, even when changed from the pause menu.
+    if (next && harnessSettings) setHarnessSettings(next)
+    else if (next) changeSettings(next)
+    setHarnessRequestId(undefined)
     setSeed(randomSeed())
     setRun((n) => n + 1)
   }
@@ -204,6 +208,7 @@ export default function SpaceShooterGame({ generatorId, params, onExit }: GamePr
       audio={audio}
       keymap={keymap}
       seed={seed}
+      harnessRequestId={harnessRequestId}
       onRestart={start}
       onSettingsChange={(next) => (harnessSettings ? setHarnessSettings(next) : changeSettings(next))}
       onQuit={onExit}

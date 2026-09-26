@@ -65,6 +65,8 @@ export interface SessionInit {
   seed: number
   /** Aborted when the session ends (also the plugin context's signal). */
   signal: AbortSignal
+  /** DEV: the window.__edugames.open() request this run was started for. */
+  harnessRequestId?: string
 }
 
 export interface Session {
@@ -142,6 +144,9 @@ export async function startSession(init: SessionInit): Promise<Session> {
 
   // DEV: the harness owns stepping, logging and answer checks.
   let inViewStep = false
+  /** During a view step: whether the step's own batch has been seen, and batches dispatched inside it. */
+  let stepBatchSeen = false
+  let nested: GameEvent[] = []
   const harness = dev
     ? dev.createBrowserHarness({
         engine,
@@ -151,6 +156,7 @@ export async function startSession(init: SessionInit): Promise<Session> {
         params: plugin.serializeOptions(init.options),
         seed: init.seed,
         settings: { lanes: engine.config.lanes, direction: settings.direction, ship: settings.ship, speed: settings.speed },
+        requestId: init.harnessRequestId,
         getView: () => view,
         isPaused: () => engine.state.status !== 'playing',
       })
@@ -192,9 +198,16 @@ export async function startSession(init: SessionInit): Promise<Session> {
     return events
   }
 
-  // Everything the harness runs outside a view step (verdicts, send(), time.step()).
+  // Everything the harness runs outside a view step (verdicts, send(), time.step()). Inside a view
+  // step, the first batch is the step itself (the view gets it back from step()); later batches are
+  // dispatches during the tick, e.g. a synchronous check's verdict, and ride along with the step.
   const unsubscribe = harness?.subscribe((events) => {
-    if (inViewStep || disposed) return
+    if (disposed) return
+    if (inViewStep) {
+      if (stepBatchSeen) nested.push(...events)
+      stepBatchSeen = true
+      return
+    }
     if (events.length) view?.pushEvents(events)
     handle(events)
   })
@@ -223,10 +236,14 @@ export async function startSession(init: SessionInit): Promise<Session> {
       step: harness
         ? () => {
             inViewStep = true
+            stepBatchSeen = false
+            nested = []
             try {
-              return harness.tick()
+              const events = harness.tick()
+              return nested.length ? [...events, ...nested] : events
             } finally {
               inViewStep = false
+              nested = []
             }
           }
         : undefined,

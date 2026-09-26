@@ -34,6 +34,8 @@ export interface PlayScreenProps {
   audio: AudioDirector
   keymap: Keymap
   seed: number
+  /** DEV: the window.__edugames.open() request this run was started for. */
+  harnessRequestId?: string
   onRestart(next?: GameSettings): void
   /** Settings that apply live (speed): persist them without restarting. */
   onSettingsChange(next: GameSettings): void
@@ -75,9 +77,10 @@ function describeFailure(err: unknown, pluginName: string): string {
     return `This ${pluginName} set can't be played in Space Shooter. ${e.message}`.trim()
   }
   if (e?.name === 'AbortError') return 'Loading was interrupted. Try again.'
-  // Plugins reject with player-facing text (contract); the technical cause goes to the console.
-  if (e?.cause) console.warn('[space-shooter] generator failed to load:', e.cause)
-  return e?.message?.trim() || "We couldn't load the problems."
+  // Plugins reject with player-facing text in a plain Error (contract); anything else (TypeError,
+  // SyntaxError, …) is technical, so the player gets a generic line and the console the details.
+  if (e?.cause || (e && e.name !== 'Error')) console.warn('[space-shooter] generator failed to load:', e.cause ?? e)
+  return (e?.name === 'Error' && e.message.trim()) || "We couldn't load the problems. Try again in a moment."
 }
 
 function isEditable(target: EventTarget | null): boolean {
@@ -120,6 +123,7 @@ export function PlayScreen(props: PlayScreenProps) {
       audio,
       seed: props.seed,
       signal: controller.signal,
+      harnessRequestId: props.harnessRequestId,
     }).then(
       (s) => {
         if (!controller.signal.aborted) setSession(s)
@@ -286,7 +290,7 @@ export function PlayScreen(props: PlayScreenProps) {
       hud={hud}
       title={title}
       muted={muted}
-      slow={settings.speed < 1}
+      slow={(session?.slowestSpeed ?? settings.speed) < 1}
       engine={session?.engine ?? null}
       onPause={() => session?.pause()}
       onToggleMute={() => audio.toggleMuted()}

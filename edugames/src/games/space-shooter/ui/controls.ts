@@ -31,6 +31,8 @@ export const REPEATING_ACTIONS: ReadonlySet<string> = new Set(['moveUp', 'moveDo
  * ship while the answer is numeric). Unbound: Delete clears the quiver.
  */
 export function keyToAction(keymap: Keymap, event: KeyEventLike, ctx: KeyContext): KeyAction | null {
+  // NumLock off: Numpad8/2 report ArrowUp/ArrowDown keys with their own codes; treat them as the arrows.
+  if (event.code.startsWith('Numpad') && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) event = { ...event, code: event.key }
   const freeform = ctx.inputMode === 'freeform'
   const typing = freeform && [...event.key].length === 1 && acceptsChar(ctx.input, event.key)
   const id = keymap.match(event, { textEntry: typing })
