@@ -127,7 +127,10 @@ async function upstreamJson<T>(env: GeneratorEnv, path: string, init?: RequestIn
   }
 }
 
-/** Cache a computed JSON response by request URL at the edge. */
+/**
+ * Cache a computed JSON response at the edge, keyed by origin + pathname only: no route reads the query
+ * string, so `?x=1` must not mint a fresh key (that would let anyone bypass the cache and hit upstream).
+ */
 async function cached(
   request: Request,
   ctx: ExecutionContext,
@@ -135,7 +138,8 @@ async function cached(
   build: () => Promise<Response>,
 ): Promise<Response> {
   const cache = caches.default
-  const key = new Request(request.url, { method: 'GET' })
+  const { origin, pathname } = new URL(request.url)
+  const key = new Request(`${origin}${pathname}`, { method: 'GET' })
   const hit = await cache.match(key)
   if (hit) return hit
   const res = await build()
@@ -167,11 +171,13 @@ interface KinderQuestion {
   difficulty?: number
 }
 
-/** Pull practice several times and union by question id (each pull is a random subset). */
+/** Pull practice several times (in parallel) and union by question id (each pull is a random subset). */
 async function buildPool(env: GeneratorEnv, id: string): Promise<KinderQuestion[]> {
   const byId = new Map<string, KinderQuestion>()
-  for (let i = 0; i < POOL_PULLS; i++) {
-    const batch = await upstreamJson<KinderQuestion[]>(env, `lessons/${id}/practice`)
+  const batches = await Promise.all(
+    Array.from({ length: POOL_PULLS }, () => upstreamJson<KinderQuestion[]>(env, `lessons/${id}/practice`)),
+  )
+  for (const batch of batches) {
     if (!Array.isArray(batch)) continue
     for (const q of batch) {
       if (q && typeof q.id === 'string' && !byId.has(q.id)) byId.set(q.id, q)

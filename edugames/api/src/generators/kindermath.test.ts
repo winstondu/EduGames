@@ -160,6 +160,46 @@ describe('question pool', () => {
     expect(calls).toHaveLength(4)
     expect(calls[0].url).toBe(`https://api.kindermath.org/v1/lessons/${id}/practice`)
   })
+
+  test('pulls run in parallel', async () => {
+    const id = 'a6e6d424-ebc2-4607-99cf-c52808e3dd8f'
+    const release: (() => void)[] = []
+    responder = () =>
+      new Promise<Response>((resolve) => release.push(() => resolve(jsonResponse([{ id: `q${release.length}`, kind: 'MCQ', prompt: 'p' }]))))
+    const pending = call('GET', `lessons/${id}/questions`)
+    // All four pulls are in flight before any of them answers.
+    for (let i = 0; i < 20 && release.length < 4; i++) await Promise.resolve()
+    expect(release).toHaveLength(4)
+    release.forEach((r) => r())
+    expect((await pending).status).toBe(200)
+  })
+})
+
+// --- edge cache -------------------------------------------------------------
+
+describe('edge cache', () => {
+  test('keys on origin + pathname, ignoring the query string', async () => {
+    const store = new Map<string, Response>()
+    ;(globalThis as unknown as { caches: unknown }).caches = {
+      default: {
+        match: async (req: Request) => store.get(req.url)?.clone(),
+        put: async (req: Request, res: Response) => void store.set(req.url, res),
+      },
+    }
+    const waits: Promise<unknown>[] = []
+    const liveCtx = { waitUntil: (p: Promise<unknown>) => waits.push(p), passThroughOnException() {} } as unknown as ExecutionContext
+    responder = () => jsonResponse([{ slug: 'intro-algebra-1' }])
+    const get = (qs: string) =>
+      kindermathServer.handle(new Request(`https://api.games.winstondu.com/v1/generators/kindermath/courses${qs}`), 'courses', env, liveCtx)
+
+    expect((await get('?bust=1')).status).toBe(200)
+    await Promise.all(waits)
+    expect([...store.keys()]).toEqual(['https://api.games.winstondu.com/v1/generators/kindermath/courses'])
+    const again = await get('?bust=2')
+    expect(await readBody<{ slug: string }[]>(again)).toEqual([{ slug: 'intro-algebra-1' }])
+    expect(await readBody<{ slug: string }[]>(await get(''))).toEqual([{ slug: 'intro-algebra-1' }])
+    expect(calls).toHaveLength(1)
+  })
 })
 
 // --- check path -------------------------------------------------------------
