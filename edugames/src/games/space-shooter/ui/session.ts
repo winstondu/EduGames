@@ -61,6 +61,8 @@ export interface SessionInit {
   formats: readonly ProblemFormat[]
   settings: GameSettings
   canvas: HTMLCanvasElement
+  /** Touch device (coarse pointer): the view's hints say "tap" instead of naming keys. */
+  touch?: boolean
   audio: AudioDirector
   seed: number
   /** Aborted when the session ends (also the plugin context's signal). */
@@ -232,6 +234,7 @@ export async function startSession(init: SessionInit): Promise<Session> {
       engine,
       direction: settings.direction,
       ship: settings.ship,
+      touch: init.touch,
       speed: settings.speed,
       step: harness
         ? () => {

@@ -1,7 +1,7 @@
 /**
  * The quiver: a comic speech bubble above the ship (tail pointing at it)
  * showing the freeform answer being typed, a blinking caret / "?" while
- * empty, or a "pick 1–4" hint for multiple-choice targets.
+ * empty, or a "pick 1–4" (touch: "tap an answer") hint for multiple-choice targets.
  */
 import * as ex from 'excalibur'
 import { PALETTE } from '../../assets/spec'
@@ -20,6 +20,7 @@ const MAX_W = 480
 
 export class QuiverActor extends ex.Actor {
   private readonly sign: 1 | -1
+  private readonly touch: boolean
   private readonly canvas: ex.Canvas
   private content: QuiverContent = { mode: 'hidden', text: '', caret: false, above: true }
   private key = ''
@@ -27,9 +28,10 @@ export class QuiverActor extends ex.Actor {
   private popAt = -1
   private time = 0
 
-  constructor(direction: Direction, quality: number) {
+  constructor(direction: Direction, quality: number, touch = false) {
     super({ z: Z.quiver })
     this.sign = travelSign(direction)
+    this.touch = touch
     this.canvas = surface(MAX_W + MARGIN * 2, BODY_H + TAIL + MARGIN * 2, quality, (ctx) => this.paintBubble(ctx))
     this.graphics.forceOnScreen = true
     this.graphics.onPostDraw = (ctx) => {
@@ -40,10 +42,11 @@ export class QuiverActor extends ex.Actor {
     }
   }
 
-  sync(state: GameState, shipX: number, shipY: number, time: number): void {
+  /** `ceiling`: world y the bubble must stay below (UI overlays at the top). */
+  sync(state: GameState, shipX: number, shipY: number, time: number, ceiling?: number): void {
     this.time = time
-    const base = quiverContent(state, time)
-    const placement = placeBubble(shipY, BODY_H, TAIL)
+    const base = quiverContent(state, time, this.touch)
+    const placement = placeBubble(shipY, BODY_H, TAIL, ceiling)
     const content: QuiverContent = { ...base, above: placement.above }
     const key = `${content.mode}|${content.text}|${content.mode === 'choice' ? '' : content.caret}|${content.above}`
     if (key !== this.key) {

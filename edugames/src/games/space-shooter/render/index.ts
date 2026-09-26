@@ -24,6 +24,8 @@ export interface GameViewOptions {
   engine: Engine // from engine/types
   direction: Direction
   ship: ShipSkinId
+  /** Touch device (coarse pointer): in-canvas hints say "tap" instead of naming keys. Default false. */
+  touch?: boolean
   /** Initial real-time multiplier (player speed setting, default 1). */
   speed?: number
   /** Runs one fixed step (default engine.step(); the DEV harness passes harness.tick). */
@@ -41,6 +43,11 @@ export interface GameView {
   setPaused(paused: boolean): void
   /** Step pacing: speed scale, lockstep and queued manual steps (the engine stays deterministic). */
   readonly time: TimeController
+  /**
+   * World y covered by UI overlays at the top of the stage (HUD row + question banner), so the
+   * quiver bubble hangs below the ship rather than under them; null = just the HUD band.
+   */
+  setReservedTop(y: number | null): void
   /** Map client (CSS px) ↔ world coords; world x is measured from the leading edge. */
   clientToWorld(clientX: number, clientY: number): { x: number; y: number }
   worldToClient(x: number, y: number): { x: number; y: number }
@@ -125,6 +132,7 @@ export function createGameView(options: GameViewOptions): GameView {
     step: options.step,
     direction,
     quality,
+    touch: options.touch,
     shipImage,
     powerupImages,
     onStep: (events) => {
@@ -159,6 +167,9 @@ export function createGameView(options: GameViewOptions): GameView {
     },
     setPaused(paused) {
       if (!disposed) scene.setPaused(paused)
+    },
+    setReservedTop(y) {
+      if (!disposed) scene.setReservedTop(y)
     },
     time,
     clientToWorld: (clientX, clientY) => clientToWorld(rect(), direction, clientX, clientY),

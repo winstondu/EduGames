@@ -70,6 +70,7 @@
   --hud-h: max(42px, calc(var(--u) * 96));
   position: absolute;
   pointer-events: none;
+  container: ss-layer / size;
 }
 
 .ss-layer button,
@@ -299,13 +300,42 @@
 
 /* ── Question banner ───────────────────────────────────────────────────── */
 
-.ss-layer-banner {
-  position: absolute;
-  top: calc(var(--hud-h) + 4px);
-  left: calc(var(--u) * 170);
-  right: calc(var(--u) * 170);
+/* Wide layout: the banner sits in the HUD row (in the title chip's place), off the lanes. A long
+   prompt grows the row downward instead of covering the top lane. */
+.is-wide .ss-hud.has-banner {
+  height: auto;
+  min-height: var(--h);
+  align-items: flex-start;
+}
+
+.ss-hud.has-banner .ss-hud-left,
+.ss-hud.has-banner .ss-hud-right {
+  flex: none;
+  min-height: var(--h);
+}
+
+.ss-hud.has-banner .ss-hud-score {
   display: flex;
+  align-items: center;
+  min-height: var(--h);
+}
+
+.ss-hud-banner {
+  display: flex;
+  flex: 1 1 auto;
   justify-content: center;
+  min-width: 0;
+  padding-block: calc(var(--h) * 0.1);
+}
+
+.ss-hud-banner .ss-banner {
+  min-height: calc(var(--h) * 0.8);
+  padding: 2px 12px 2px 6px;
+  font-size: clamp(13px, calc(var(--u) * 26), 26px);
+  line-height: 1.2;
+  border-width: 2px;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 var(--ink);
 }
 
 .ss-banner {
@@ -655,17 +685,33 @@
 
 /* ── Feedback ──────────────────────────────────────────────────────────── */
 
-.ss-layer-toast {
+/* Toast + "checking…" chip dock on the far side of the stage (away from the ship), under the HUD
+   row, or at the bottom when the ship flies in the upper lanes (PlayScreen picks the half). */
+.ss-layer-notes {
   position: absolute;
-  left: 50%;
-  bottom: calc(var(--u) * 36);
-  width: min(94%, 520px);
-  transform: translateX(-50%);
+  left: calc(var(--u) * 380);
+  right: calc(var(--u) * 24);
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.ss-layer-notes.is-top {
+  top: calc(var(--reserved-top, 0px) + 6px);
+}
+
+.ss-layer-notes.is-bottom {
+  bottom: calc(var(--u) * 24);
+}
+
+.is-rtl .ss-layer-notes {
+  left: calc(var(--u) * 24);
+  right: calc(var(--u) * 380);
 }
 
 .ss-toast {
+  max-width: min(100%, 520px);
   display: grid;
   gap: 4px;
   padding: 10px 16px;
@@ -718,9 +764,7 @@
 }
 
 .ss-pending {
-  position: absolute;
-  top: calc(var(--hud-h) + 8px);
-  right: calc(var(--u) * 24);
+  align-self: flex-end;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -735,14 +779,60 @@
 }
 
 .is-rtl .ss-pending {
-  right: auto;
-  left: calc(var(--u) * 24);
+  align-self: flex-start;
 }
 
 .ss-pending .loader span {
   width: 9px;
   height: 9px;
   border-width: 2px;
+}
+
+/* Short stages (phones): a compact toast — title beside the "you fired" line, smaller type. */
+@container ss-layer (max-height: 420px) {
+  .ss-layer-notes {
+    gap: 4px;
+  }
+
+  .ss-toast {
+    grid-template-columns: auto auto;
+    justify-content: center;
+    align-items: baseline;
+    column-gap: 8px;
+    row-gap: 2px;
+    max-width: min(100%, 340px);
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    line-height: 1.25;
+    border-width: 2px;
+    border-radius: 10px;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+
+  .ss-toast > :nth-child(n + 3) {
+    grid-column: 1 / -1;
+  }
+
+  .ss-toast-title {
+    font-size: 0.9rem;
+  }
+
+  .ss-toast-hint {
+    padding: 2px 8px;
+  }
+
+  .ss-toast .ss-toast-btn {
+    min-height: 28px;
+    padding: 2px 12px;
+    font-size: 0.8rem;
+  }
+
+  .ss-pending {
+    padding: 2px 10px;
+    font-size: 0.8rem;
+    border-width: 2px;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
 }
 
 /* ── Dialogs ───────────────────────────────────────────────────────────── */
