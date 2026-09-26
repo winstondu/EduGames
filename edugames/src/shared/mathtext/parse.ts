@@ -138,6 +138,22 @@ const CHAR_OPS: Record<string, { text: string; kind: OpNode['kind'] }> = {
   "'": { text: '′', kind: 'ord' },
 }
 
+const STRUCTURE_COMMANDS = new Set(['frac', 'dfrac', 'tfrac', 'sqrt'])
+
+/** Whether the parser understands `\name` (unknown commands render as their bare name). */
+export function isKnownMathCommand(name: string): boolean {
+  return STRUCTURE_COMMANDS.has(name) || FONT_COMMANDS.has(name) || name in SPACES || name in SYMBOLS || name in GREEK || IGNORED_COMMANDS.has(name)
+}
+
+/** Unknown TeX command names used inside `$…$` segments (for generator conformance checks). */
+export function unknownMathCommands(input: string): string[] {
+  const unknown = new Set<string>()
+  for (const segment of input.matchAll(/\$((?:\\\$|[^$])*)\$/g)) {
+    for (const m of segment[1].matchAll(/\\([A-Za-z]+|[^A-Za-z])/g)) if (!isKnownMathCommand(m[1])) unknown.add(m[1])
+  }
+  return [...unknown]
+}
+
 /** Split text into prose runs and `$…$` math segments. */
 export function parseMathText(input: string): MathTextNode[] {
   const out: MathTextNode[] = []

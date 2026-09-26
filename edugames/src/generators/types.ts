@@ -64,7 +64,7 @@ export interface AnswerInputSpec {
 }
 
 export interface Problem {
-  /** Unique within a ProblemSource instance. */
+  /** Identifies the problem within a ProblemSource: one id is one problem (recycled problems keep their id). */
   id: string
   /**
    * Question text. May contain inline math between `$…$` using a small TeX
