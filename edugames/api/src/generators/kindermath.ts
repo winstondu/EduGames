@@ -3,10 +3,12 @@
  * Mounted by the API Worker at `/v1/generators/kindermath/*`. The browser never
  * talks to the upstream directly (no CORS there, and credentials stay here).
  *
- * Auth is STUBBED with a demo identity for now: we attach the configured
- * demo email as the upstream dev identity (`x-dev-user-email` header plus the
- * `km_dev_user` cookie the site itself uses). Client cookies/headers are never
- * forwarded upstream, and upstream auth headers are never returned.
+ * Auth is STUBBED with the demo account for now: the Worker logs in upstream
+ * once (`POST /auth/login` with KINDERMATH_DEV_USER_EMAIL + the
+ * KINDERMATH_DEMO_PASSWORD secret), keeps the returned session cookie in
+ * isolate memory, and re-logs in once on a 401. That cookie is only ever sent
+ * upstream — client cookies/headers are never forwarded, and upstream
+ * cookies/auth headers are never returned to the browser.
  */
 import type { GeneratorEnv, GeneratorServer } from './types'
 
@@ -16,6 +18,8 @@ const UPSTREAM_TIMEOUT_MS = 8000
 const MAX_BODY_BYTES = 4096
 /** How many practice pulls to union — each returns a random subset of the lesson. */
 const POOL_PULLS = 4
+/** Re-login proactively after this long even without a 401. */
+const SESSION_TTL_MS = 30 * 60 * 1000
 
 const HOUR = 3600
 const TEN_MIN = 600
@@ -35,7 +39,61 @@ function base(env: GeneratorEnv): string | null {
   return b ? b.replace(/\/$/, '') : null
 }
 
-/** Fetch upstream with our demo identity and an 8s timeout. Never forwards client input. */
+/** One fetch with timeout; Workers only supports redirect 'follow' | 'manual', so refuse redirects here. */
+async function rawFetch(url: string, init: { method: string; headers: Record<string, string>; body?: BodyInit | null }): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS)
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal, redirect: 'manual' })
+    if (res.status >= 300 && res.status < 400) throw new UpstreamError(`${url}: unexpected redirect`)
+    return res
+  } catch (err) {
+    if (err instanceof UpstreamError) throw err
+    throw new UpstreamError(err instanceof Error ? err.message : 'upstream fetch failed')
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// --- demo session (stub auth) ----------------------------------------------
+
+let demoSession: { cookie: string; expires: number } | null = null
+let loginInFlight: Promise<string | null> | null = null
+
+/** Test hook: forget the cached demo session. */
+export function resetDemoSession(): void {
+  demoSession = null
+  loginInFlight = null
+}
+
+/** Session cookie for the demo account, logging in if needed; null when no demo credentials are configured. */
+async function demoCookie(env: GeneratorEnv, root: string, force = false): Promise<string | null> {
+  if (!env.KINDERMATH_DEV_USER_EMAIL || !env.KINDERMATH_DEMO_PASSWORD) return null
+  if (!force && demoSession && demoSession.expires > Date.now()) return demoSession.cookie
+  loginInFlight ??= loginDemo(env, root).finally(() => {
+    loginInFlight = null
+  })
+  return loginInFlight
+}
+
+async function loginDemo(env: GeneratorEnv, root: string): Promise<string> {
+  demoSession = null
+  const res = await rawFetch(`${root}/auth/login`, {
+    method: 'POST',
+    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    body: JSON.stringify({ email: env.KINDERMATH_DEV_USER_EMAIL, password: env.KINDERMATH_DEMO_PASSWORD }),
+  })
+  if (!res.ok) throw new UpstreamError(`demo login failed: HTTP ${res.status}`)
+  const setCookies = typeof res.headers.getSetCookie === 'function'
+    ? res.headers.getSetCookie()
+    : [res.headers.get('set-cookie') ?? ''].filter(Boolean)
+  const cookie = setCookies.map((c) => c.split(';')[0].trim()).filter(Boolean).join('; ')
+  if (!cookie) throw new UpstreamError('demo login returned no session cookie')
+  demoSession = { cookie, expires: Date.now() + SESSION_TTL_MS }
+  return cookie
+}
+
+/** Fetch upstream as the demo account (re-login once on 401). Never forwards client input. */
 async function upstream(
   env: GeneratorEnv,
   path: string,
@@ -43,29 +101,16 @@ async function upstream(
 ): Promise<Response> {
   const root = base(env)
   if (!root) throw new UpstreamError('kindermath upstream not configured')
-  const headers: Record<string, string> = { accept: 'application/json' }
-  const email = env.KINDERMATH_DEV_USER_EMAIL
-  if (email) {
-    headers['x-dev-user-email'] = email
-    headers['cookie'] = `km_dev_user=${encodeURIComponent(email)}`
+  const send = async (cookie: string | null) => {
+    const headers: Record<string, string> = { accept: 'application/json' }
+    if (cookie) headers['cookie'] = cookie
+    if (init?.body) headers['content-type'] = 'application/json'
+    return rawFetch(`${root}/${path}`, { method: init?.method ?? 'GET', headers, body: init?.body })
   }
-  if (init?.body) headers['content-type'] = 'application/json'
-
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS)
-  try {
-    return await fetch(`${root}/${path}`, {
-      method: init?.method ?? 'GET',
-      headers,
-      body: init?.body,
-      signal: controller.signal,
-      redirect: 'error',
-    })
-  } catch (err) {
-    throw new UpstreamError(err instanceof Error ? err.message : 'upstream fetch failed')
-  } finally {
-    clearTimeout(timer)
-  }
+  const res = await send(await demoCookie(env, root))
+  if (res.status !== 401) return res
+  const fresh = await demoCookie(env, root, true)
+  return fresh ? send(fresh) : res
 }
 
 class UpstreamError extends Error {}

@@ -3,7 +3,9 @@
 GENERATORS_DEV_ORIGIN=http://localhost:5173
 # Browser origins allowed by CORS (comma-separated).
 ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-# STUB auth: demo identity sent upstream as x-dev-user-email until real per-user login lands.
+# STUB auth: the API logs in to kindermath as this demo account until per-user login lands.
 KINDERMATH_DEV_USER_EMAIL=teacher@demo-academy.test
+# Demo account password (fill in yourself; production: `wrangler secret put KINDERMATH_DEMO_PASSWORD -c api/wrangler.jsonc`).
+KINDERMATH_DEMO_PASSWORD=
 # Optional: salt for hashing client IPs (abuse guard). Set with `wrangler secret put` in production.
 # IP_HASH_SALT=change-me

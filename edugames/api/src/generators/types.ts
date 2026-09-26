@@ -12,8 +12,10 @@ export interface GeneratorEnv {
   GENERATORS_DEV_ORIGIN?: string
   /** e.g. "https://api.kindermath.org/v1" */
   KINDERMATH_API_BASE?: string
-  /** STUB auth: demo identity sent upstream as `x-dev-user-email` until real per-user login lands. */
+  /** STUB auth: demo account email; the server half logs in upstream as this user until per-user login lands. */
   KINDERMATH_DEV_USER_EMAIL?: string
+  /** STUB auth: demo account password — a secret (`wrangler secret put` / api/.dev.vars), never in wrangler.jsonc. */
+  KINDERMATH_DEMO_PASSWORD?: string
 }
 
 export interface GeneratorServer {

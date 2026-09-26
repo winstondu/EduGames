@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { kindermathServer } from './kindermath'
+import { kindermathServer, resetDemoSession } from './kindermath'
 import type { GeneratorEnv } from './types'
 
 // --- test doubles -----------------------------------------------------------
@@ -7,6 +7,7 @@ import type { GeneratorEnv } from './types'
 const env = {
   KINDERMATH_API_BASE: 'https://api.kindermath.org/v1',
   KINDERMATH_DEV_USER_EMAIL: 'teacher@demo-academy.test',
+  KINDERMATH_DEMO_PASSWORD: 'test-password',
 } as unknown as GeneratorEnv
 
 const ctx = { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext
@@ -19,14 +20,21 @@ interface FetchCall {
 let calls: FetchCall[] = []
 type Responder = (url: string, init?: RequestInit) => Response | Promise<Response>
 let responder: Responder = () => new Response('{}', { status: 200 })
+/** When true, demo logins are answered automatically and not recorded in `calls`. */
+let autoLogin = true
 
 const realFetch = globalThis.fetch
 const realCaches = (globalThis as { caches?: unknown }).caches
 
 beforeEach(() => {
   calls = []
+  autoLogin = true
+  resetDemoSession()
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString()
+    if (autoLogin && url.endsWith('/auth/login')) {
+      return Promise.resolve(new Response('{}', { status: 200, headers: { 'set-cookie': 'km_session=auto; Path=/' } }))
+    }
     calls.push({ url, init })
     return Promise.resolve(responder(url, init))
   }) as typeof fetch
@@ -185,16 +193,52 @@ describe('check', () => {
 // --- identity + error mapping ----------------------------------------------
 
 describe('upstream identity and errors', () => {
-  test('attaches demo identity, never a client cookie', async () => {
-    responder = () => jsonResponse([])
+  test('logs in as the demo account and sends only its session cookie upstream', async () => {
+    autoLogin = false
+    responder = (url) =>
+      url.endsWith('/auth/login')
+        ? new Response('{}', { status: 200, headers: { 'set-cookie': 'km_session=abc123; Path=/; HttpOnly; Secure' } })
+        : jsonResponse([])
     const req = new Request(
       'https://api.games.winstondu.com/v1/generators/kindermath/courses',
       { headers: { cookie: 'session=secret', 'x-dev-user-email': 'attacker@evil.test' } },
     )
-    await kindermathServer.handle(req, 'courses', env, ctx)
-    const headers = calls[0].init?.headers as Record<string, string>
-    expect(headers['x-dev-user-email']).toBe('teacher@demo-academy.test')
-    expect(headers['cookie']).toBe('km_dev_user=teacher%40demo-academy.test')
+    const res = await kindermathServer.handle(req, 'courses', env, ctx)
+    expect(calls[0].url).toBe('https://api.kindermath.org/v1/auth/login')
+    expect(JSON.parse(String(calls[0].init?.body))).toEqual({ email: 'teacher@demo-academy.test', password: 'test-password' })
+    const headers = calls[1].init?.headers as Record<string, string>
+    expect(headers['cookie']).toBe('km_session=abc123')
+    expect(headers['x-dev-user-email']).toBeUndefined()
+    expect(res.headers.get('set-cookie')).toBeNull()
+    // Session is reused on the next request.
+    await kindermathServer.handle(new Request(req.url), 'courses/intro-algebra-1', env, ctx)
+    expect(calls.filter((c) => c.url.endsWith('/auth/login'))).toHaveLength(1)
+  })
+
+  test('re-logs in once on 401, then retries', async () => {
+    autoLogin = false
+    let logins = 0
+    let lessonCalls = 0
+    responder = (url) => {
+      if (url.endsWith('/auth/login')) {
+        logins++
+        return new Response('{}', { status: 200, headers: { 'set-cookie': `km_session=s${logins}; Path=/` } })
+      }
+      lessonCalls++
+      return lessonCalls === 1 ? new Response('unauth', { status: 401 }) : jsonResponse({ id: 'x', title: 'T' })
+    }
+    const res = await call('GET', 'lessons/a6e6d424-ebc2-4607-99cf-c52808e3dd8f')
+    expect(res.status).toBe(200)
+    expect(logins).toBe(2)
+    const last = calls[calls.length - 1].init?.headers as Record<string, string>
+    expect(last['cookie']).toBe('km_session=s2')
+  })
+
+  test('failed demo login → 502', async () => {
+    autoLogin = false
+    responder = (url) => (url.endsWith('/auth/login') ? new Response('bad creds', { status: 401 }) : jsonResponse([]))
+    const res = await call('GET', 'courses')
+    expect(res.status).toBe(502)
   })
 
   test('upstream non-2xx → 502', async () => {
