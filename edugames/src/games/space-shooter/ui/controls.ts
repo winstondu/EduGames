@@ -84,6 +84,21 @@ export function keypadChars(input: AnswerInputSpec): string[] {
   return [...base, ...extras].filter((c, i, all) => all.indexOf(c) === i && acceptsChar(input, c))
 }
 
+/**
+ * Phone-style dial pad for numeric answers (3 columns): 1–9, then a row of
+ * the spec's extra characters (e.g. "-", "/", padded with null spacers), then
+ * ⌫ 0 FIRE — so FIRE sits in the pad and the deck fits small phones.
+ */
+export function numericPadLayout(input: AnswerInputSpec): (KeypadKey | null)[] {
+  const chars = keypadChars(input)
+  const digits = '123456789'.split('').filter((d) => chars.includes(d))
+  const extras = chars.filter((c) => !/[0-9]/.test(c))
+  const char = (c: string): KeypadKey => ({ kind: 'char', char: c })
+  const extraRows = extras.map(char) as (KeypadKey | null)[]
+  while (extraRows.length % 3) extraRows.push(null)
+  return [...digits.map(char), ...extraRows, { kind: 'backspace' }, chars.includes('0') ? char('0') : null, { kind: 'fire' }]
+}
+
 /** Longest plain-text prompt an asteroid is expected to show in full. */
 export const ASTEROID_PROMPT_MAX = 8
 

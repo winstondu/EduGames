@@ -3,7 +3,7 @@ import type { AnswerInputSpec, Problem } from '../../../generators/types'
 import { createKeymap, type Keymap } from '../../../shared/kit/input/keymap'
 import { WORLD, laneCenterY, type Command, type GameEvent } from '../engine/types'
 import { SHOOTER_ACTIONS } from '../input/actions'
-import { accuracyPercent, dragLane, keypadChars, keyToAction, laneAtY, needsBanner, type KeyAction, type KeyContext, type KeyEventLike } from './controls'
+import { accuracyPercent, dragLane, keypadChars, numericPadLayout, keyToAction, laneAtY, needsBanner, type KeyAction, type KeyContext, type KeyEventLike } from './controls'
 import { cueFor, playCues } from './cues'
 
 const numeric: AnswerInputSpec = { kind: 'numeric', maxLength: 3 }
@@ -131,6 +131,20 @@ describe('dragLane', () => {
     // From lane 2, a pointer at 1.4 (0.1 past the 1|2 line) keeps lane 2; 1.3 switches.
     expect(dragLane(at(1.4), lanes, 2)).toBe(2)
     expect(dragLane(at(1.3), lanes, 2)).toBe(1)
+  })
+})
+
+describe('numericPadLayout', () => {
+  const label = (k: ReturnType<typeof numericPadLayout>[number]) => (k === null ? '_' : k.kind === 'char' ? k.char : k.kind)
+
+  test('dial pad: 1–9 then ⌫ 0 FIRE', () => {
+    expect(numericPadLayout({ kind: 'numeric', maxLength: 3 }).map(label).join(' ')).toBe('1 2 3 4 5 6 7 8 9 backspace 0 fire')
+  })
+
+  test('extras get their own padded row, keeping ⌫ 0 FIRE aligned at the bottom', () => {
+    const keys = numericPadLayout({ kind: 'numeric', maxLength: 5, allow: '-/' }).map(label)
+    expect(keys.join(' ')).toBe('1 2 3 4 5 6 7 8 9 - / _ backspace 0 fire')
+    expect(keys.length % 3).toBe(0)
   })
 })
 

@@ -3,7 +3,7 @@ import type { MouseEvent } from 'react'
 import type { AnswerInputSpec, Choice, Problem } from '../../../generators/types'
 import { MathText } from '../../../shared/mathtext/MathText'
 import { mathTextToPlain } from '../../../shared/mathtext/parse'
-import { keypadChars } from './controls'
+import { keypadChars, numericPadLayout } from './controls'
 
 /** Keep in-game buttons from stealing keyboard focus (Space/Enter must reach the game, not re-click them). */
 const keepFocus = (e: MouseEvent) => e.preventDefault()
@@ -90,30 +90,47 @@ export function Keypad({
   onBackspace(): void
   onFire(): void
 }) {
+  if (input.kind === 'numeric') {
+    // Dial pad: 1–9, extras, then ⌫ 0 FIRE (FIRE inside the grid keeps the deck short on phones).
+    return (
+      <div className="ss-keypad ss-keypad--numeric">
+        <div className="ss-keys" role="group" aria-label="Keypad">
+          {numericPadLayout(input).map((key, i) => {
+            if (!key) return <span key={`gap-${i}`} aria-hidden="true" />
+            if (key.kind === 'fire') {
+              return (
+                <button key="fire" type="button" className="ss-fire ss-fire--pad" disabled={!enabled || !canFire} onMouseDown={keepFocus} onClick={onFire}>
+                  FIRE!
+                </button>
+              )
+            }
+            if (key.kind === 'backspace') {
+              return (
+                <button key="back" type="button" className="ss-key ss-key--back" disabled={!enabled} onMouseDown={keepFocus} onClick={onBackspace} aria-label="Delete">
+                  ⌫
+                </button>
+              )
+            }
+            return (
+              <button key={key.char} type="button" className="ss-key" disabled={!enabled} onMouseDown={keepFocus} onClick={() => onChar(key.char)}>
+                {key.char}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
   const keys = keypadChars(input)
   return (
-    <div className={`ss-keypad ss-keypad--${input.kind}`}>
+    <div className="ss-keypad ss-keypad--text">
       <div className="ss-keys" role="group" aria-label="Keypad">
         {keys.map((k) => (
-          <button
-            key={k}
-            type="button"
-            className="ss-key"
-            disabled={!enabled}
-            onMouseDown={keepFocus}
-            onClick={() => onChar(k)}
-          >
+          <button key={k} type="button" className="ss-key" disabled={!enabled} onMouseDown={keepFocus} onClick={() => onChar(k)}>
             {k}
           </button>
         ))}
-        <button
-          type="button"
-          className="ss-key ss-key--back"
-          disabled={!enabled}
-          onMouseDown={keepFocus}
-          onClick={onBackspace}
-          aria-label="Delete"
-        >
+        <button type="button" className="ss-key ss-key--back" disabled={!enabled} onMouseDown={keepFocus} onClick={onBackspace} aria-label="Delete">
           ⌫
         </button>
       </div>

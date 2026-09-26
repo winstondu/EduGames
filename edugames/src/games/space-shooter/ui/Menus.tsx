@@ -123,7 +123,7 @@ export function SettingsForm({ value, onChange, muted, onMutedChange, keymap }: 
       </div>
 
       {keymap && (
-        <details className="ss-setting ss-keys">
+        <details className="ss-setting ss-keybinds">
           <summary className="ss-setting-label">Keys</summary>
           <KeymapEditor keymap={keymap} onChange={(state) => saveKeymap(GAME_ID, state)} className="ss-keymap" />
         </details>

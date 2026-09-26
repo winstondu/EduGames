@@ -599,8 +599,8 @@
   cursor: pointer;
 }
 
-.is-stacked .ss-keypad:not(.ss-keypad--text) .ss-key {
-  min-height: clamp(48px, 8.5dvh, 76px);
+.is-stacked .ss-keypad--numeric .ss-key {
+  min-height: clamp(44px, 7dvh, 68px);
 }
 
 .ss-keypad--text .ss-key {
@@ -639,6 +639,13 @@
   border-radius: 16px;
   box-shadow: 4px 4px 0 var(--ink);
   cursor: pointer;
+}
+
+.ss-fire--pad {
+  min-height: 0;
+  font-size: 1.35rem;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 var(--ink);
 }
 
 .ss-fire:active:not(:disabled) {
@@ -1157,12 +1164,12 @@ kbd {
   white-space: nowrap;
 }
 
-.ss-keys {
+.ss-keybinds {
   display: block;
   width: 100%;
 }
 
-.ss-keys > summary {
+.ss-keybinds > summary {
   cursor: pointer;
   color: var(--ink);
 }
