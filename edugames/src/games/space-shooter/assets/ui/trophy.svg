@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <path d="M12.5 10 C4.5 10 4.5 21 14 21.5 M35.5 10 C43.5 10 43.5 21 34 21.5" fill="none" stroke="#1b1b2f" stroke-width="7.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M12.5 10 C4.5 10 4.5 21 14 21.5 M35.5 10 C43.5 10 43.5 21 34 21.5" fill="none" stroke="#ffd23f" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+  <clipPath id="ui-tr-stem"><path d="M20.5 23 L27.5 23 L29.5 35 L18.5 35 Z" clip-rule="nonzero"/></clipPath>
+  <path d="M20.5 23 L27.5 23 L29.5 35 L18.5 35 Z" fill="#e09a14" fill-rule="nonzero"/>
+  <g clip-path="url(#ui-tr-stem)"><path d="M20.5 23 L27.5 23 L29.5 35 L18.5 35 Z" fill="#ffd23f" fill-rule="nonzero" transform="translate(-2 -2)"/></g>
+  <path d="M20.5 23 L27.5 23 L29.5 35 L18.5 35 Z" fill="none" stroke="#1b1b2f" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <clipPath id="ui-tr-cup"><path d="M11 5 L37 5 L37 13.5 C37 21.5 31 25.5 24 25.5 C17 25.5 11 21.5 11 13.5 Z" clip-rule="nonzero"/></clipPath>
+  <path d="M11 5 L37 5 L37 13.5 C37 21.5 31 25.5 24 25.5 C17 25.5 11 21.5 11 13.5 Z" fill="#e09a14" fill-rule="nonzero"/>
+  <g clip-path="url(#ui-tr-cup)"><path d="M11 5 L37 5 L37 13.5 C37 21.5 31 25.5 24 25.5 C17 25.5 11 21.5 11 13.5 Z" fill="#ffd23f" fill-rule="nonzero" transform="translate(-3 -3)"/></g>
+  <path d="M11 5 L37 5 L37 13.5 C37 21.5 31 25.5 24 25.5 C17 25.5 11 21.5 11 13.5 Z" fill="none" stroke="#1b1b2f" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+  <clipPath id="ui-tr-base"><path d="M14 34 L34 34 Q37 34 37 37 L37 40.5 Q37 43.5 34 43.5 L14 43.5 Q11 43.5 11 40.5 L11 37 Q11 34 14 34 Z" clip-rule="nonzero"/></clipPath>
+  <path d="M14 34 L34 34 Q37 34 37 37 L37 40.5 Q37 43.5 34 43.5 L14 43.5 Q11 43.5 11 40.5 L11 37 Q11 34 14 34 Z" fill="#9c6334" fill-rule="nonzero"/>
+  <g clip-path="url(#ui-tr-base)"><path d="M14 34 L34 34 Q37 34 37 37 L37 40.5 Q37 43.5 34 43.5 L14 43.5 Q11 43.5 11 40.5 L11 37 Q11 34 14 34 Z" fill="#c98a4b" fill-rule="nonzero" transform="translate(-2 -2)"/></g>
+  <path d="M14 34 L34 34 Q37 34 37 37 L37 40.5 Q37 43.5 34 43.5 L14 43.5 Q11 43.5 11 40.5 L11 37 Q11 34 14 34 Z" fill="none" stroke="#1b1b2f" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+  <ellipse cx="17" cy="12" rx="1.9" ry="4" fill="#ffffff" transform="rotate(0 17 12)"/>
+</svg>

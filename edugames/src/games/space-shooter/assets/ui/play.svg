@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <clipPath id="ui-pl"><path d="M14 8.5 L39 24 L14 39.5 Z" clip-rule="nonzero"/></clipPath>
+  <path d="M14 8.5 L39 24 L14 39.5 Z" fill="#d9c79f" fill-rule="nonzero"/>
+  <g clip-path="url(#ui-pl)"><path d="M14 8.5 L39 24 L14 39.5 Z" fill="#fff6e0" fill-rule="nonzero" transform="translate(-3 -3)"/></g>
+  <path d="M14 8.5 L39 24 L14 39.5 Z" fill="none" stroke="#1b1b2f" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>

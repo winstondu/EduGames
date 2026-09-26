@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="30.5" fill="#3ba7ff" fill-opacity="0.22"/>
+  <circle cx="32" cy="32" r="29.5" fill="none" stroke="#3ba7ff" stroke-opacity="0.6" stroke-width="2"/>
+  <clipPath id="pu-shield"><path d="M32 6 L54 13.5 L54 29 C54 43.5 45 52.5 32 58.5 C19 52.5 10 43.5 10 29 L10 13.5 Z" clip-rule="nonzero"/></clipPath>
+  <path d="M32 6 L54 13.5 L54 29 C54 43.5 45 52.5 32 58.5 C19 52.5 10 43.5 10 29 L10 13.5 Z" fill="#1f6fc4" fill-rule="nonzero"/>
+  <g clip-path="url(#pu-shield)"><path d="M32 6 L54 13.5 L54 29 C54 43.5 45 52.5 32 58.5 C19 52.5 10 43.5 10 29 L10 13.5 Z" fill="#3ba7ff" fill-rule="nonzero" transform="translate(-3 -3)"/></g>
+  <path d="M32 6 L54 13.5 L54 29 C54 43.5 45 52.5 32 58.5 C19 52.5 10 43.5 10 29 L10 13.5 Z" fill="none" stroke="#1b1b2f" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M32 14 L46 18.5 L46 29 C46 39 40 45.5 32 50 C24 45.5 18 39 18 29 L18 18.5 Z" fill="#7fc6ff" stroke="#1b1b2f" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M32 14 L46 18.5 L46 29 C46 39 40 45.5 32 50 Z" fill="#3ba7ff"/>
+  <path d="M32 14 L46 18.5 L46 29 C46 39 40 45.5 32 50 C24 45.5 18 39 18 29 L18 18.5 Z" fill="none" stroke="#1b1b2f" stroke-width="2.5" stroke-linejoin="round"/>
+  <ellipse cx="17.5" cy="17" rx="4.2" ry="2.2" fill="#ffffff" transform="rotate(-20 17.5 17)"/>
+</svg>
