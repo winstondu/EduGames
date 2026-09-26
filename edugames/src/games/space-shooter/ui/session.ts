@@ -23,6 +23,7 @@ import type { AudioDirector } from '../../../shared/kit/audio'
 import { createCheckBroker } from '../../../shared/kit/checkBroker'
 import { createHudStore, type HudStore } from '../../../shared/kit/hudStore'
 import type { GameSpeed } from '../../../shared/kit/time'
+import { MAX_CHOICES } from '../engine/types'
 import { createEngine, type ActiveEffect, type Command, type Engine, type GameEvent, type GameStatus } from '../engine'
 import type { ShooterHarness } from '../harness/adapter'
 import { createGameView, type GameView } from '../render'
@@ -123,7 +124,7 @@ export async function startSession(init: SessionInit): Promise<Session> {
   const { plugin, settings, audio, signal } = init
   const seeds = deriveSeeds(init.seed)
   const ctx = createGeneratorContext(init.generatorId, seeds.generator, signal)
-  const source: ProblemSource = await plugin.create(init.options, ctx, { formats: init.formats })
+  const source: ProblemSource = await plugin.create(init.options, ctx, { formats: init.formats, maxChoices: MAX_CHOICES })
   const dev = import.meta.env.DEV ? await import('../harness/browser') : null
   if (signal.aborted) {
     source.dispose?.()
