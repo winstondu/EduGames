@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "deploy": "bun run build && wrangler deploy",
     "test": "bun test src",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "generators:build": "bun scripts/build-generators.ts"
   },
   "dependencies": {
     "@fontsource/comic-neue": "^5.3.0",
