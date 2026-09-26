@@ -9,6 +9,9 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "deploy": "bun run build && wrangler deploy",
+    "dev:api": "wrangler dev -c api/wrangler.jsonc --port 8787",
+    "db:migrate:local": "wrangler d1 migrations apply edugames --local -c api/wrangler.jsonc",
+    "deploy:api": "bun run generators:build && wrangler deploy -c api/wrangler.jsonc",
     "test": "bun test src",
     "typecheck": "tsc -b"
   },
