@@ -683,6 +683,128 @@
   box-shadow: 1px 1px 0 var(--ink);
 }
 
+/* ── System-keyboard answer field (stacked touch layout, text answers) ─── */
+
+/* Fit what the soft keyboard leaves visible (--ss-vv-*: visualViewport, set by PlayScreen). */
+.ss-root.has-system-field {
+  top: var(--ss-vv-top, 0px);
+  bottom: auto;
+  height: var(--ss-vv-height, 100%);
+}
+
+/* Short of height, the stage letterboxes smaller instead of pushing the field off-screen. */
+.has-system-field.is-stacked .ss-stage-area {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.has-system-field.is-stacked .ss-deck {
+  flex: 1 0 auto;
+}
+
+.ss-sysfield {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+.ss-sysfield-row {
+  display: flex;
+  gap: 10px;
+}
+
+.ss-sysfield-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 52px;
+  padding: 4px 14px;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: inset 3px 3px 0 rgb(27 27 47 / 0.12);
+  cursor: text;
+}
+
+.ss-sysfield-box:focus-within {
+  outline: 3px solid var(--star);
+  outline-offset: 2px;
+}
+
+.ss-sysfield-input {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 1.7rem; /* ≥ 16px: iOS doesn't zoom on focus */
+  font-weight: 700;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.ss-sysfield-input::placeholder {
+  font-size: 1rem;
+  color: #8d88a6;
+}
+
+.ss-sysfield-fire {
+  flex: none;
+  min-height: 52px;
+  padding: 0 18px;
+  font-size: 1.4rem;
+  border-radius: 14px;
+}
+
+.ss-sysfield-help {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
+  color: #b9b4d6;
+}
+
+.ss-sysfield.is-rejected .ss-sysfield-box {
+  border-color: var(--laser);
+}
+
+.ss-sysfield.is-rejected .ss-sysfield-help {
+  color: #ffb3b3;
+}
+
+/* Two identical animations so a refusal right after another restarts the shake. */
+.ss-sysfield.is-shake-0 .ss-sysfield-box {
+  animation: ss-field-shake-0 280ms ease-out;
+}
+
+.ss-sysfield.is-shake-1 .ss-sysfield-box {
+  animation: ss-field-shake-1 280ms ease-out;
+}
+
+@keyframes ss-field-shake-0 {
+  25% { transform: translateX(-6px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-3px); }
+}
+
+@keyframes ss-field-shake-1 {
+  25% { transform: translateX(-6px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ss-sysfield .ss-sysfield-box {
+    animation: none;
+  }
+}
+
 /* ── Feedback ──────────────────────────────────────────────────────────── */
 
 /* Toast + "checking…" chip dock on the far side of the stage (away from the ship), under the HUD

@@ -12,15 +12,16 @@ import type { Keymap } from '../../../shared/kit/input/keymap'
 import { START_LIVES, WORLD, type Command } from '../engine/types'
 import { GAME_ID, needsRestart, type GameSettings } from '../settings'
 import { ChoicePad, Keypad, QuestionBanner, QuiverReadout } from './Answers'
-import { dragLane, keyToAction, laneAtY, needsBanner, REPEATING_ACTIONS } from './controls'
+import { dragLane, keyToAction, laneAtY, needsBanner, REPEATING_ACTIONS, usesSystemKeyboard } from './controls'
 import { FeedbackToast, PendingChip, type WrongFeedback } from './Feedback'
 import { GameOver, type RunResult } from './GameOver'
 import { Hud } from './Hud'
-import { useMediaQuery, useMuted } from './hooks'
+import { useMediaQuery, useMuted, useVisualViewport } from './hooks'
 import { PauseMenu, SettingsDialog } from './Menus'
 import { reservedTopWorld, toastAnchor, type ToastAnchor } from './overlays'
 import { Modal } from './Screens'
 import { startSession, type HudSnapshot, type Session } from './session'
+import { SystemAnswerInput } from './SystemAnswerInput'
 
 /** Portrait-ish viewports stack HUD / stage / deck vertically. */
 const STACKED_QUERY = '(max-aspect-ratio: 5/4)'
@@ -316,6 +317,10 @@ export function PlayScreen(props: PlayScreenProps) {
   const target = hud.target?.problem ?? null
   const showDeck = stacked || coarse
   const rtl = settings.direction === 'rtl'
+  // Text answers on a portrait touch screen: a real field with the system keyboard instead of the keypad.
+  const systemField = showDeck && mode === 'freeform' && usesSystemKeyboard({ stacked, coarse, input: hud.input })
+  // …and the screen fits what the soft keyboard leaves visible.
+  const viewport = useVisualViewport(systemField)
   const hudEl = (banner?: boolean) => (
     <Hud
       hud={hud}
@@ -346,9 +351,32 @@ export function PlayScreen(props: PlayScreenProps) {
         '--reserved-top': `${reservedPx}px`,
       } as CSSProperties)
     : undefined
+  const rootStyle = viewport
+    ? ({ '--ss-vv-height': `${viewport.height}px`, '--ss-vv-top': `${viewport.top}px` } as CSSProperties)
+    : undefined
+
+  /** Physical keys pressed inside the answer field that aren't editing it (arrows, pause…), through the keymap. */
+  function onFieldKey(e: KeyboardEvent): boolean {
+    if (!session || document.querySelector('dialog[open]')) return false
+    const s = session.engine.state
+    if (s.status === 'over') return false
+    const action = keyToAction(keymap, e, { inputMode: s.inputMode, input: s.input })
+    if (!action || (action.type === 'command' && action.command.type === 'fire')) return false
+    if (e.repeat && !(action.type === 'command' && REPEATING_ACTIONS.has(action.command.type))) return true
+    if (action.type === 'togglePause') {
+      if (s.status === 'paused') session.resume()
+      else session.pause()
+    } else if (s.status === 'playing') {
+      session.dispatch(action.command)
+    }
+    return true
+  }
 
   return (
-    <div className={`ss-root ${stacked ? 'is-stacked' : 'is-wide'}${showDeck ? ' has-deck' : ''}${rtl ? ' is-rtl' : ''}`}>
+    <div
+      className={`ss-root ${stacked ? 'is-stacked' : 'is-wide'}${showDeck ? ' has-deck' : ''}${systemField ? ' has-system-field' : ''}${rtl ? ' is-rtl' : ''}`}
+      style={rootStyle}
+    >
       {stacked && (
         <div className="ss-top">
           {hudEl()}
@@ -365,6 +393,8 @@ export function PlayScreen(props: PlayScreenProps) {
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
           onLostPointerCapture={endDrag}
+          // Steering by tap must not blur the answer field (the keyboard would close and the layout jump).
+          onMouseDown={systemField ? (e) => e.preventDefault() : undefined}
         >
           <canvas ref={canvasRef} className="ss-canvas" aria-label="Game area" />
           {session && layer && (
@@ -399,7 +429,19 @@ export function PlayScreen(props: PlayScreenProps) {
       {showDeck && (
         <div className="ss-deck">
           {mode === 'multiple-choice' && choicePad(stacked ? 'grid' : 'strip')}
-          {mode === 'freeform' && (
+          {systemField && (
+            <SystemAnswerInput
+              quiver={hud.quiver}
+              input={hud.input}
+              targetId={hud.inputMode === 'freeform' ? (hud.target?.id ?? null) : null}
+              enabled={!!session && hud.status !== 'over'}
+              placeholder={hud.inputMode ? 'Type your answer…' : 'Pick a lane'}
+              readQuiver={() => session?.engine.state.quiver ?? ''}
+              send={send}
+              onKey={onFieldKey}
+            />
+          )}
+          {mode === 'freeform' && !systemField && (
             <>
               <QuiverReadout
                 quiver={hud.quiver}

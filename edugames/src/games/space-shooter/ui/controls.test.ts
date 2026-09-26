@@ -3,7 +3,21 @@ import type { AnswerInputSpec, Problem } from '../../../generators/types'
 import { createKeymap, type Keymap } from '../../../shared/kit/input/keymap'
 import { WORLD, laneCenterY, type Command, type GameEvent } from '../engine/types'
 import { SHOOTER_ACTIONS } from '../input/actions'
-import { accuracyPercent, dragLane, keypadChars, numericPadLayout, keyToAction, laneAtY, needsBanner, type KeyAction, type KeyContext, type KeyEventLike } from './controls'
+import {
+  accuracyPercent,
+  allowedCharsHint,
+  dragLane,
+  keypadChars,
+  numericPadLayout,
+  keyToAction,
+  laneAtY,
+  needsBanner,
+  quiverEdits,
+  usesSystemKeyboard,
+  type KeyAction,
+  type KeyContext,
+  type KeyEventLike,
+} from './controls'
 import { cueFor, playCues } from './cues'
 
 const numeric: AnswerInputSpec = { kind: 'numeric', maxLength: 3 }
@@ -214,5 +228,70 @@ describe('cues', () => {
     const hit: GameEvent = { type: 'hit', asteroidId: 1, lane: 0, x: 0, points: 10, bonus: false }
     playCues(audio, [hit, { ...hit, asteroidId: 2 }, { type: 'levelUp', level: 6 }, { type: 'gameOver', score: 1 }])
     expect(calls).toEqual(['sfx:zap', 'sfx:levelUp', 'music:intense', 'sfx:gameOver', 'music:null'])
+  })
+})
+
+describe('usesSystemKeyboard', () => {
+  const signed: AnswerInputSpec = { kind: 'numeric', maxLength: 6, allow: '-./' }
+  test('text answers in the stacked touch layout use the system keyboard', () => {
+    expect(usesSystemKeyboard({ stacked: true, coarse: true, input: text })).toBe(true)
+  })
+  test('numeric answers keep the dial pad, even with − . / extras', () => {
+    expect(usesSystemKeyboard({ stacked: true, coarse: true, input: numeric })).toBe(false)
+    expect(usesSystemKeyboard({ stacked: true, coarse: true, input: signed })).toBe(false)
+  })
+  test('wide layouts and fine pointers keep the game input', () => {
+    expect(usesSystemKeyboard({ stacked: false, coarse: true, input: text })).toBe(false)
+    expect(usesSystemKeyboard({ stacked: true, coarse: false, input: text })).toBe(false)
+    expect(usesSystemKeyboard({ stacked: false, coarse: false, input: text })).toBe(false)
+  })
+})
+
+describe('quiverEdits', () => {
+  const type = (char: string): Command => ({ type: 'typeChar', char })
+  const back: Command = { type: 'backspace' }
+  const wide: AnswerInputSpec = { kind: 'text', maxLength: 16, allow: '-./x^=+() ' }
+
+  test('appending types the new characters', () => {
+    expect(quiverEdits('', 'x', text)).toEqual({ commands: [type('x')], rejected: [] })
+    expect(quiverEdits('2x', '2x-1', text)).toEqual({ commands: [type('-'), type('1')], rejected: [] })
+  })
+  test('deleting at the end backspaces', () => {
+    expect(quiverEdits('abc', 'a', text)).toEqual({ commands: [back, back], rejected: [] })
+    expect(quiverEdits('abc', 'abc', text)).toEqual({ commands: [], rejected: [] })
+  })
+  test('autocorrect replacements rewrite from the first difference (one clear when nothing is kept)', () => {
+    expect(quiverEdits('yse', 'yes', text).commands).toEqual([back, back, type('e'), type('s')])
+    expect(quiverEdits('ten', 'the', text).commands).toEqual([back, back, type('h'), type('e')])
+    expect(quiverEdits('eht', 'the', text).commands).toEqual([{ type: 'clearQuiver' }, type('t'), type('h'), type('e')])
+    expect(quiverEdits('abc', '', text).commands).toEqual([{ type: 'clearQuiver' }])
+  })
+  test('an edit in the middle rewrites from the first difference', () => {
+    expect(quiverEdits('abc', 'aXbc', text).commands).toEqual([back, back, type('X'), type('b'), type('c')])
+  })
+  test('refused characters are reported and skipped', () => {
+    expect(quiverEdits('1', '1!2', text)).toEqual({ commands: [type('2')], rejected: ['!'] })
+    expect(quiverEdits('', '=(', text)).toEqual({ commands: [], rejected: ['=', '('] })
+    expect(quiverEdits('', 'x = (1)', wide)).toEqual({ commands: [...'x = (1)'].map(type), rejected: [] })
+  })
+  test('autocorrected dashes become the accepted hyphen', () => {
+    expect(quiverEdits('', '−3–1', text)).toEqual({ commands: [type('-'), type('3'), type('-'), type('1')], rejected: [] })
+    expect(quiverEdits('', '–', numeric)).toEqual({ commands: [], rejected: ['–'] })
+  })
+  test('typing stops at maxLength', () => {
+    expect(quiverEdits('12', '12345', numeric).commands).toEqual([type('3')])
+  })
+  test('multi-code-unit characters count once', () => {
+    expect(quiverEdits('ab', 'ab😀', text).rejected).toEqual(['😀'])
+  })
+})
+
+describe('allowedCharsHint', () => {
+  test('lists the spec’s extra symbols after the base set', () => {
+    expect(allowedCharsHint(text)).toBe('letters, numbers, spaces and - . / ^')
+    expect(allowedCharsHint({ kind: 'text', maxLength: 16, allow: '-./x^=+() ' })).toBe('letters, numbers, spaces and - . / ^ = + ( )')
+    expect(allowedCharsHint({ kind: 'text', maxLength: 5 })).toBe('letters, numbers and spaces')
+    expect(allowedCharsHint(numeric)).toBe('numbers')
+    expect(allowedCharsHint({ kind: 'numeric', maxLength: 5, allow: '-/ ' })).toBe('numbers, spaces and - /')
   })
 })
