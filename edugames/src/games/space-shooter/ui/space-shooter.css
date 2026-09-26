@@ -504,6 +504,17 @@
   font-size: 2rem;
 }
 
+/* Portrait phones: the 16:9 stage leaves most of the height to the deck — let the 2×2 choices use it. */
+.is-stacked .ss-deck .ss-choices--grid {
+  flex: 0 1 auto;
+  height: min(100%, 440px);
+  grid-auto-rows: 1fr;
+}
+
+.is-stacked .ss-deck .ss-choices--grid .ss-choice {
+  max-height: none;
+}
+
 .ss-deck .ss-choice.is-long {
   font-size: 1.05rem;
 }
@@ -584,6 +595,10 @@
   border-radius: 12px;
   box-shadow: 3px 3px 0 var(--ink);
   cursor: pointer;
+}
+
+.is-stacked .ss-keypad:not(.ss-keypad--text) .ss-key {
+  min-height: clamp(48px, 8.5dvh, 76px);
 }
 
 .ss-keypad--text .ss-key {

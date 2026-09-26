@@ -22,11 +22,15 @@ export function moveAsteroids(ctx: EngineContext, dt: number): void {
   }
 }
 
-/** The first non-pending asteroid a bolt sweeping [fromX, toX] in `lane` touches. */
-function boltVictim(asteroids: AsteroidState[], lane: number, fromX: number, toX: number): AsteroidState | null {
+/**
+ * The first non-pending asteroid a bolt sweeping [fromX, toX] in its lane
+ * touches. A bolt aimed at a target only ever strikes that target.
+ */
+function boltVictim(asteroids: AsteroidState[], bolt: BoltState, fromX: number, toX: number): AsteroidState | null {
   let best: AsteroidState | null = null
   for (const a of asteroids) {
-    if (a.lane !== lane || a.pending) continue
+    if (a.lane !== bolt.lane || a.pending) continue
+    if (bolt.targetId !== null && a.id !== bolt.targetId) continue
     if (a.x - a.radius > toX || a.x + a.radius < fromX) continue
     if (!best || a.x < best.x) best = a
   }
@@ -41,7 +45,7 @@ export function moveBolts(ctx: EngineContext, dt: number): void {
   for (const bolt of s.bolts) {
     const fromX = bolt.x
     bolt.x += speed * dt
-    const victim = boltVictim(s.asteroids, bolt.lane, fromX, bolt.x)
+    const victim = boltVictim(s.asteroids, bolt, fromX, bolt.x)
     if (victim) requestCheck(ctx, victim, bolt)
     else if (bolt.x <= WORLD.width + 200) kept.push(bolt)
   }

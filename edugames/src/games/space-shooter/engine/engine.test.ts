@@ -439,6 +439,22 @@ describe('checks', () => {
     expect(second.asteroidId).toBe(b.id)
   })
 
+  test('a bolt only strikes the asteroid it was aimed at', () => {
+    const { engine } = makeEngine()
+    const [a, b] = twoInShipLane(engine)
+    // Two quick shots at `a`: the first freezes it, the second must not land on `b`.
+    for (const answer of ['1', '9']) {
+      for (const char of answer) engine.dispatch({ type: 'typeChar', char })
+      engine.dispatch({ type: 'fire' })
+    }
+    expect(engine.state.bolts.map((bolt) => bolt.targetId)).toEqual([a.id, a.id])
+    const events = stepsFor(engine, 1.5)
+    const checks = ofType(events, 'checkRequested')
+    expect(checks.map((c) => c.asteroidId)).toEqual([a.id])
+    expect(b.pending).toBe(false)
+    expect(engine.state.bolts).toHaveLength(0)
+  })
+
   test('bolts leaving the world vanish', () => {
     const { engine } = makeEngine()
     const a = firstAsteroidInShipLane(engine)

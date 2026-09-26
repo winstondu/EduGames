@@ -117,6 +117,12 @@ export interface BoltState {
   given: string
   /** What the bolt displays: choice text or typed text (may contain $…$). */
   display: string
+  /**
+   * The asteroid this answer was aimed at (the target when fired). The bolt
+   * strikes only that asteroid and flies through any other, so a second quick
+   * shot can't land one problem's answer on the next rock. null = first rock hit.
+   */
+  targetId: number | null
 }
 
 export interface PowerupState {

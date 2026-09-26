@@ -39,7 +39,14 @@ export function clearQuiver(ctx: EngineContext): void {
 function launch(ctx: EngineContext, given: string, display: string): void {
   const lane = collisionLane(ctx.state)
   const boltId = newEntityId(ctx)
-  ctx.state.bolts.push({ id: boltId, lane, x: WORLD.shipX + WORLD.shipHalfLength, given, display })
+  ctx.state.bolts.push({
+    id: boltId,
+    lane,
+    x: WORLD.shipX + WORLD.shipHalfLength,
+    given,
+    display,
+    targetId: ctx.state.targetId,
+  })
   emit(ctx, { type: 'fired', boltId, lane, display })
 }
 
