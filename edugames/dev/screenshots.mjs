@@ -204,6 +204,40 @@ for (const vp of ['phone-p', 'phone-l']) {
 }
 
 
+// ── system keyboard field (portrait text answers): real <input> typing, soft keyboard emulated by shrinking the viewport ──
+/** Type into the real field (page.keyboard → input events → quiver diff) and record field value vs engine quiver. */
+async function fieldType(page, text) {
+  const field = page.locator('.ss-sysfield-input')
+  await field.click()
+  await page.keyboard.type(text)
+  const r = await ev(page, () => ({ field: document.querySelector('.ss-sysfield-input')?.value, quiver: window.__shot.h().state().quiver, focused: document.activeElement?.className, form: document.querySelector('.ss-sysfield')?.className }))
+  console.log('  field', JSON.stringify(r))
+  return r
+}
+add('phone-p-km-sysfield-typed', 'phone-p', { ...KM, settings: { lanes: 4 } }, async (p) => { await toTarget(p, 'freeform', 90); await fieldType(p, '2x') })
+add('phone-p-km-sysfield-rejected', 'phone-p', { ...KM, settings: { lanes: 4 } }, async (p) => {
+  await toTarget(p, 'freeform', 90)
+  // Screenshots take far longer than the ~1.6 s refusal cue here: keep its reset timer from firing.
+  await ev(p, () => { const st = window.setTimeout; window.setTimeout = (fn, ms, ...a) => (ms === 1600 ? 0 : st(fn, ms, ...a)) })
+  await fieldType(p, 'x!')
+})
+add('phone-p-km-sysfield-kbd', 'phone-p', { ...KM, settings: { lanes: 4 } }, async (p) => {
+  await toTarget(p, 'freeform', 90); await fieldType(p, '3x')
+  await p.setViewportSize({ width: 390, height: 480 }) // ≈ what a soft keyboard leaves on a 390×844 phone
+})
+add('phone-p-km-sysfield-kbd-fire', 'phone-p', { ...KM, settings: { lanes: 4 } }, async (p) => {
+  await toTarget(p, 'freeform', 90); await fieldType(p, '8')
+  await p.setViewportSize({ width: 390, height: 480 })
+  await p.keyboard.press('Enter')
+  await ev(p, () => window.__shot.h().act(null, { advance: 0.3 }))
+  console.log('  after Enter', JSON.stringify(await ev(p, () => ({ field: document.querySelector('.ss-sysfield-input')?.value, quiver: window.__shot.h().state().quiver, fired: window.__shot.h().events().events.filter((e) => e.type === 'fired').length }))))
+})
+add('tablet-km-sysfield-typed', 'tablet', { ...KM, settings: { lanes: 4 } }, async (p) => { await toTarget(p, 'freeform', 90); await fieldType(p, 'x^2') })
+add('desktop-km-typed-keys', 'desktop', { ...KM, settings: { lanes: 4 } }, async (p) => {
+  await toTarget(p, 'freeform', 90); await p.keyboard.type('2x')
+  console.log('  desktop', JSON.stringify(await ev(p, () => ({ fields: document.querySelectorAll('.ss-sysfield-input').length, quiver: window.__shot.h().state().quiver }))))
+})
+
 // ── keyboard mockups (DOM injected into the real deck; not game code) ─────
 const MOCKS = {
   // 4-col numeric: digits + extras column (− . /), ⌫ 0 FIRE×2
@@ -272,7 +306,7 @@ for (const sc of S) {
     status = 'error: ' + String(e.message ?? e).split('\n')[0]
   }
   try { await page.screenshot({ path: `${OUT}/${sc.name}.png` }) } catch { status += ' / shot failed' }
-  const meta = await page.evaluate(() => { const h = window.__edugames?.harness; if (!h) return null; const s = h.state(); return { status: s.status, time: s.time, inputMode: s.inputMode, input: s.input, effects: s.effects, shield: s.shield, lives: s.lives, target: s.asteroids.find((a) => a.id === s.target)?.prompt } }).catch(() => null)
+  const meta = await page.evaluate(() => { const h = window.__edugames?.harness; if (!h) return null; const s = h.state(); return { status: s.status, time: s.time, inputMode: s.inputMode, input: s.input, quiver: s.quiver, effects: s.effects, shield: s.shield, lives: s.lives, target: s.asteroids.find((a) => a.id === s.target)?.prompt } }).catch(() => null)
   results.push({ name: sc.name, vp: sc.vp, open: sc.open, status, errors: errors.slice(0, 5), meta, ms: Date.now() - t0 })
   console.log(sc.name, status, errors.length ? `errors:${errors.length}` : '', Date.now() - t0 + 'ms')
   await page.close()

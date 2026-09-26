@@ -1,5 +1,5 @@
 /** Small React hooks for the space shooter screen. */
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { AudioDirector } from '../../../shared/kit/audio'
 import { createKeymap, loadKeymap, type Keymap } from '../../../shared/kit/input/keymap'
 import { SHOOTER_ACTIONS } from '../input/actions'
@@ -21,6 +21,45 @@ export function useMediaQuery(query: string): boolean {
     () => matchMedia(query).matches,
     () => false,
   )
+}
+
+export interface ViewportBox {
+  height: number
+  top: number
+}
+
+/**
+ * While `active`, the visual viewport's height and offset in CSS px — the part
+ * of the screen a soft keyboard leaves visible (null when inactive, pinch-zoomed
+ * or unsupported). Fixed layouts size themselves to it so the keyboard never
+ * covers them, whichever `interactive-widget` behaviour the browser uses.
+ */
+export function useVisualViewport(active: boolean): ViewportBox | null {
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      const vv = window.visualViewport
+      if (!active || !vv) return () => {}
+      vv.addEventListener('resize', listener)
+      vv.addEventListener('scroll', listener)
+      return () => {
+        vv.removeEventListener('resize', listener)
+        vv.removeEventListener('scroll', listener)
+      }
+    },
+    [active],
+  )
+  const snapshot = useSyncExternalStore(
+    subscribe,
+    () => {
+      const vv = window.visualViewport
+      if (!active || !vv || Math.abs(vv.scale - 1) > 0.01) return ''
+      return `${Math.round(vv.height)} ${Math.round(vv.offsetTop)}`
+    },
+    () => '',
+  )
+  if (!snapshot) return null
+  const [height, top] = snapshot.split(' ').map(Number)
+  return { height, top }
 }
 
 /** One AudioDirector per game screen, unlocked on the first gesture and disposed on unmount. */

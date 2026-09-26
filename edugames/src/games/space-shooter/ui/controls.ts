@@ -101,6 +101,76 @@ export function numericPadLayout(input: AnswerInputSpec): (KeypadKey | null)[] {
   return [...digits.map(char), ...extraRows, { kind: 'backspace' }, chars.includes('0') ? char('0') : null, { kind: 'fire' }]
 }
 
+export interface AnswerFieldContext {
+  /** Portrait (stacked) layout. */
+  stacked: boolean
+  /** Primary pointer is coarse (touch device, likely without a physical keyboard). */
+  coarse: boolean
+  input: AnswerInputSpec
+}
+
+/**
+ * Whether a freeform answer is typed into a real text field with the device's
+ * system keyboard instead of the in-game keypad: text answers in the stacked
+ * touch layout. Numeric answers keep the dial pad; wide layouts and fine
+ * pointers (desktop, typing on a physical keyboard) keep the game's own input.
+ */
+export function usesSystemKeyboard(ctx: AnswerFieldContext): boolean {
+  return ctx.stacked && ctx.coarse && ctx.input.kind === 'text'
+}
+
+/** Look-alike characters a system keyboard's autocorrect may substitute (smart dashes, minus sign). */
+const LOOKALIKES: Readonly<Record<string, string>> = { '−': '-', '–': '-', '—': '-' }
+
+export interface QuiverEdit {
+  /** Engine commands that turn the quiver into the accepted part of the field's value. */
+  commands: Command[]
+  /** Characters the answer spec refuses (never reach the quiver). */
+  rejected: string[]
+}
+
+/**
+ * Diff a text field's new value against the engine's quiver: remove what
+ * differs after the common prefix (backspaces, or one clearQuiver when nothing
+ * is kept — e.g. autocorrect replacing the word), then type the rest. Rejected
+ * characters are skipped and reported; typing stops at the spec's maxLength.
+ */
+export function quiverEdits(quiver: string, value: string, input: AnswerInputSpec): QuiverEdit {
+  const have = [...quiver]
+  const want = [...value].map((c) => {
+    const plain = LOOKALIKES[c]
+    return plain && !acceptsChar(input, c) && acceptsChar(input, plain) ? plain : c
+  })
+  let keep = 0
+  while (keep < have.length && keep < want.length && have[keep] === want[keep]) keep++
+  const commands: Command[] = []
+  const drop = have.length - keep
+  if (drop > 0 && keep === 0) commands.push({ type: 'clearQuiver' })
+  else for (let i = 0; i < drop; i++) commands.push({ type: 'backspace' })
+  const rejected: string[] = []
+  let length = keep
+  for (const char of want.slice(keep)) {
+    if (!acceptsChar(input, char)) rejected.push(char)
+    else if (length < input.maxLength) {
+      commands.push({ type: 'typeChar', char })
+      length++
+    }
+  }
+  return { commands, rejected }
+}
+
+/** What an answer spec lets the player type, for the text field's help line (e.g. "letters, numbers, spaces and - . /"). */
+export function allowedCharsHint(input: AnswerInputSpec): string {
+  const base = input.kind === 'text' ? ['letters', 'numbers', 'spaces'] : ['numbers']
+  const plain: AnswerInputSpec = { kind: input.kind, maxLength: input.maxLength }
+  const extras = [...new Set(input.allow ?? '')].filter((c) => !acceptsChar(plain, c))
+  const space = extras.includes(' ')
+  const symbols = extras.filter((c) => c !== ' ')
+  const parts = [...base, ...(space ? ['spaces'] : [])]
+  if (symbols.length) parts.push(symbols.join(' '))
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0]
+}
+
 /** Longest plain-text prompt an asteroid is expected to show in full. */
 export const ASTEROID_PROMPT_MAX = 8
 
