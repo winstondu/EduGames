@@ -53,6 +53,21 @@ export function laneAtY(worldY: number, lanes: number): number {
   return Math.min(lanes - 1, Math.max(0, lane))
 }
 
+/** Fraction of a lane the pointer must pass a boundary by before a drag switches lanes. */
+export const DRAG_HYSTERESIS = 0.15
+
+/**
+ * Lane for a drag at world y, snapping with hysteresis: the ship leaves
+ * `current` only once the pointer is DRAG_HYSTERESIS of a lane past the
+ * boundary, so a finger resting on a lane line doesn't jitter.
+ */
+export function dragLane(worldY: number, lanes: number, current: number, hysteresis = DRAG_HYSTERESIS): number {
+  // Pointer position in lane units, 0 = centre of the top lane.
+  const u = (worldY - WORLD.hudTop) / laneHeight(lanes) - 0.5
+  if (Math.abs(u - current) <= 0.5 + hysteresis) return current
+  return Math.min(lanes - 1, Math.max(0, Math.round(u)))
+}
+
 export type KeypadKey = { kind: 'char'; char: string } | { kind: 'backspace' } | { kind: 'fire' }
 
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']

@@ -3,7 +3,7 @@ import type { AnswerInputSpec, Problem } from '../../../generators/types'
 import { createKeymap, type Keymap } from '../../../shared/kit/input/keymap'
 import { WORLD, laneCenterY, type Command, type GameEvent } from '../engine/types'
 import { SHOOTER_ACTIONS } from '../input/actions'
-import { accuracyPercent, keypadChars, keyToAction, laneAtY, needsBanner, type KeyAction, type KeyContext, type KeyEventLike } from './controls'
+import { accuracyPercent, dragLane, keypadChars, keyToAction, laneAtY, needsBanner, type KeyAction, type KeyContext, type KeyEventLike } from './controls'
 import { cueFor, playCues } from './cues'
 
 const numeric: AnswerInputSpec = { kind: 'numeric', maxLength: 3 }
@@ -103,6 +103,34 @@ describe('laneAtY', () => {
     expect(laneAtY(0, 4)).toBe(0)
     expect(laneAtY(WORLD.height + 50, 4)).toBe(3)
     expect(laneAtY(-100, 3)).toBe(0)
+  })
+})
+
+describe('dragLane', () => {
+  const lanes = 4
+  const at = (laneUnits: number) => WORLD.hudTop + (laneUnits + 0.5) * ((laneCenterY(1, lanes) - laneCenterY(0, lanes)))
+
+  test('stays put near the current lane, including just past a boundary', () => {
+    expect(dragLane(at(1), lanes, 1)).toBe(1)
+    expect(dragLane(at(1.6), lanes, 1)).toBe(1)
+    expect(dragLane(at(0.4), lanes, 1)).toBe(1)
+  })
+
+  test('switches once clearly into the next lane, and jumps on fast drags', () => {
+    expect(dragLane(at(1.7), lanes, 1)).toBe(2)
+    expect(dragLane(at(0.3), lanes, 1)).toBe(0)
+    expect(dragLane(at(3), lanes, 0)).toBe(3)
+  })
+
+  test('clamps outside the lane band', () => {
+    expect(dragLane(-500, lanes, 2)).toBe(0)
+    expect(dragLane(WORLD.height + 500, lanes, 1)).toBe(lanes - 1)
+  })
+
+  test('hysteresis both ways: back across the line needs the same margin', () => {
+    // From lane 2, a pointer at 1.4 (0.1 past the 1|2 line) keeps lane 2; 1.3 switches.
+    expect(dragLane(at(1.4), lanes, 2)).toBe(2)
+    expect(dragLane(at(1.3), lanes, 2)).toBe(1)
   })
 })
 

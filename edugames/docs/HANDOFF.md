@@ -77,7 +77,7 @@ Review/fix pass not run.
 
 ## Feature TODO
 
-- **Drag to steer** (user request): mouse/touch drag on the stage moves the ship between
+- DONE (session 3): **Drag to steer** (user request): mouse/touch drag on the stage moves the ship between
   lanes, snapping cleanly — lane changes as the pointer crosses into a lane (with a little
   hysteresis at the boundaries so it doesn't jitter), the ship eases into the lane like
   keyboard moves, taps keep working. Pointer capture so drags that leave the canvas still

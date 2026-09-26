@@ -12,7 +12,7 @@ import type { Keymap } from '../../../shared/kit/input/keymap'
 import { START_LIVES, WORLD, type Command } from '../engine/types'
 import { GAME_ID, needsRestart, type GameSettings } from '../settings'
 import { ChoicePad, Keypad, QuestionBanner, QuiverReadout } from './Answers'
-import { keyToAction, laneAtY, needsBanner, REPEATING_ACTIONS } from './controls'
+import { dragLane, keyToAction, laneAtY, needsBanner, REPEATING_ACTIONS } from './controls'
 import { FeedbackToast, PendingChip, type WrongFeedback } from './Feedback'
 import { GameOver, type RunResult } from './GameOver'
 import { Hud } from './Hud'
@@ -244,11 +244,34 @@ export function PlayScreen(props: PlayScreenProps) {
     [session],
   )
 
+  // Tap a lane to jump there; keep pressing and drag to steer (snaps lane by lane).
+  const dragPointer = useRef<number | null>(null)
+
   function onStagePointerDown(e: PointerEvent<HTMLDivElement>) {
     if (!session || session.engine.state.status !== 'playing') return
     if (e.target instanceof Element && e.target.closest('button, a, input, .ss-toast')) return
+    if (dragPointer.current !== null) return
     const { y } = session.view.clientToWorld(e.clientX, e.clientY)
     send({ type: 'moveToLane', lane: laneAtY(y, session.engine.state.lanes) })
+    dragPointer.current = e.pointerId
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {
+      // Synthetic or already-released pointer: the drag just ends at the stage edge.
+    }
+  }
+
+  function onStagePointerMove(e: PointerEvent<HTMLDivElement>) {
+    if (e.pointerId !== dragPointer.current || !session) return
+    const s = session.engine.state
+    if (s.status !== 'playing') return
+    const { y } = session.view.clientToWorld(e.clientX, e.clientY)
+    const lane = dragLane(y, s.lanes, s.ship.lane)
+    if (lane !== s.ship.lane) send({ type: 'moveToLane', lane })
+  }
+
+  function endDrag(e: PointerEvent<HTMLDivElement>) {
+    if (e.pointerId === dragPointer.current) dragPointer.current = null
   }
 
   const clearFeedback = useCallback(() => setFeedback(null), [])
@@ -296,7 +319,15 @@ export function PlayScreen(props: PlayScreenProps) {
       )}
 
       <div className="ss-stage-area">
-        <div className="ss-stage" ref={stageRef} onPointerDown={onStagePointerDown}>
+        <div
+          className="ss-stage"
+          ref={stageRef}
+          onPointerDown={onStagePointerDown}
+          onPointerMove={onStagePointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onLostPointerCapture={endDrag}
+        >
           <canvas ref={canvasRef} className="ss-canvas" aria-label="Game area" />
           {session && layer && (
             <div className="ss-layer" style={layerStyle}>

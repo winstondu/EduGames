@@ -45,6 +45,8 @@
 
 .ss-stage {
   position: relative;
+  /* Drag-to-steer: no scrolling or zooming gestures on the play field. */
+  touch-action: none;
   width: min(100cqw, 100cqh * 16 / 9);
   aspect-ratio: 16 / 9;
   overflow: hidden;
