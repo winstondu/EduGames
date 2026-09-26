@@ -1,6 +1,6 @@
 # Handoff — EduGames space shooter (branch `feat/space-math-4901b6`)
 
-Status as of 2026-09-26. Read `src/games/space-shooter/README.md` first (architecture,
+Status as of 2026-09-26 (session 4). Read `src/games/space-shooter/README.md` first (architecture,
 module boundaries, dev ports).
 
 ## Where things stand
@@ -62,6 +62,42 @@ Open / next:
 - Typed answers can't contain "=" (allow is `-./x^`); no feedback when a key is rejected.
 - Not yet verified in play: shield and doubleShots powerups; pending chip on screen (slow set).
 - Real-time play under heavy CPU load (several headless browsers) looks frozen — load, not a bug.
+
+## Session 4 (2026-09-26) — review pass, no game code changed yet
+
+- **Screenshot set** (52 shots: desktop, phone portrait/landscape, tablet portrait/landscape;
+  ltr/rtl, lanes 3/4/5, all ships, MC / numeric / kindermath TYPED text, fixture long / fraction /
+  slow pending chip, wrong toast, shield + speed boost, pause, settings incl. Speed + Keys, game
+  over) plus 6 keyboard mockups, published as a private review page (Artifact "Space Shooter
+  Review Sheet"). Re-run with `node dev/screenshots.mjs <outDir> [nameRegex]` while `bun run dev`
+  and `bun run dev:api` are up. It drives `window.__edugames.open()` in lockstep (unrecorded) and
+  answers kindermath checks **locally via `page.route`**, so it never posts to the demo account.
+- **kindermath posts this session: 15.** Before that mock was in place, a trial run's fallback
+  answered kindermath MCQs through the real `check` route. No further posts after the fix.
+- **Layout bugs seen (not fixed yet):** phone-landscape text keypad clipped top and bottom (deck
+  `justify-content: center` + `overflow-y: auto`, so use `safe center`); phone-landscape dial pad
+  columns uneven (`repeat(3, 1fr)` grows to fit FIRE!, so use `minmax(0, 1fr)`); a numeric `allow`
+  extra takes a whole row; the "pick 1–4" ship bubble shows on touch; the 🛠 DEV button overlaps the
+  ⌫ key on phones; the wrong toast covers most of the portrait stage.
+- **Keyboard proposal (awaiting the user):** A numeric pad with an extras column (− . /), B an
+  expression pad (digits + x y ^ + − = ( ) / .), C a QWERTY text keyboard with a 123 toggle.
+  Contract option 1 (recommended): `AnswerInputSpec.kind: 'numeric' | 'expression' | 'text'`.
+  kindermath option a (recommended): map an optional upstream `answer: 'number' | 'expression' |
+  'text'` hint, falling back to `expression` for TYPED (this also fixes "=" being rejected).
+  Alternative: fall back to numeric. Every TYPED question sampled (6 Intro Algebra lessons) had a
+  numeric answer, and upstream currently sends no answer-kind field.
+- **Architecture audit** (two Fable agents, read-only). The seams hold: no bundled generators,
+  credentials stay server-side, route allowlist, deterministic engine, DEV-only harness. Findings,
+  awaiting the user's OK:
+  high: `POST kindermath/check` has no rate limit (anyone can post to the demo account);
+  `check:dist` markers are mostly identifiers that minification renames, and `deploy` skips it.
+  med: the stub login takes real credentials and reports logged-in; `maxChoices` is missing from
+  the contract (4 is hard-coded in several places); the prod session pipeline is untested in DEV;
+  the cache key includes the query string; the api tests aren't in `bun run test`; game identity
+  constants are duplicated (`meta.ts`); kindermath pool order breaks seeded replays (sort by id).
+  low: game words in `generators/types.ts`, UUID/SLUG/question types duplicated across the
+  kindermath halves, `ctx.api` isn't path-sandboxed, unlogged 502s, fixture reachable by URL in
+  prod, dead `kit/fsm.ts`, README dependency rule omits `shared/rng`, storage-only unrecorded guard.
 
 ## Verification layers (the plan)
 
