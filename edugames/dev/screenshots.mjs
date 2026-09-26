@@ -5,7 +5,7 @@ import fs from 'node:fs'
 
 const OUT = process.argv[2] ?? 'out'
 const FILTER = process.argv[3] ? new RegExp(process.argv[3]) : null
-const BASE = 'http://localhost:5173'
+const BASE = process.env.SHOTS_BASE ?? 'http://localhost:5173' // another port (e.g. a worktree's vite) rewrites plugin entries to it
 fs.mkdirSync(OUT, { recursive: true })
 
 const VIEWPORTS = {
@@ -248,7 +248,14 @@ for (const sc of S) {
   const page = await contexts[sc.vp].newPage()
   const errors = []
   // Never post kindermath attempts to the demo account: answer checks locally (always correct, MCQ + TYPED).
-  await page.route('**/v1/generators/kindermath/check', (route) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': 'http://localhost:5173', 'access-control-allow-credentials': 'true' }, body: JSON.stringify({ correct: true, explanation: 'Checked locally (screenshot run).' }) }))
+  await page.route('**/v1/generators/kindermath/check', (route) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': BASE, 'access-control-allow-credentials': 'true' }, body: JSON.stringify({ correct: true, explanation: 'Checked locally (screenshot run).' }) }))
+  if (!BASE.endsWith(':5173')) {
+    await page.route('**/v1/generators', async (route) => {
+      const res = await route.fetch(); const body = await res.json()
+      for (const g of body.generators ?? []) g.entry = g.entry.replace('http://localhost:5173', BASE)
+      await route.fulfill({ response: res, json: body })
+    })
+  }
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
   const t0 = Date.now()
