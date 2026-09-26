@@ -63,55 +63,66 @@ Open / next:
 - Not yet verified in play: shield and doubleShots powerups; pending chip on screen (slow set).
 - Real-time play under heavy CPU load (several headless browsers) looks frozen — load, not a bug.
 
-## Session 4 (2026-09-26) — review pass, no game code changed yet
+## Session 4 (2026-09-26) — review, layout fixes, system keyboard, audit fixes, auth phase 1
 
-- **Screenshot set** (52 shots: desktop, phone portrait/landscape, tablet portrait/landscape;
-  ltr/rtl, lanes 3/4/5, all ships, MC / numeric / kindermath TYPED text, fixture long / fraction /
-  slow pending chip, wrong toast, shield + speed boost, pause, settings incl. Speed + Keys, game
-  over) plus 6 keyboard mockups, published as a private review page (Artifact "Space Shooter
-  Review Sheet"). Re-run with `node dev/screenshots.mjs <outDir> [nameRegex]` while `bun run dev`
-  and `bun run dev:api` are up. It drives `window.__edugames.open()` in lockstep (unrecorded) and
-  answers kindermath checks **locally via `page.route`**, so it never posts to the demo account.
+- **Screenshot set:** 52 before-shots plus 58 after-shots on the private review page (Artifact
+  "Space Shooter Review Sheet", with before/after pairs). Re-run with `node dev/screenshots.mjs
+  <outDir> [nameRegex]` while `bun run dev` and `bun run dev:api` are up. `SHOTS_BASE=http://localhost:5174`
+  targets a second Vite (for example in a worktree; the script rewrites plugin entries to it, and
+  `ALLOWED_ORIGINS` in the git-ignored `api/.dev.vars` must list that origin). The script drives
+  `window.__edugames.open()` in lockstep (unrecorded) and answers kindermath checks **locally via
+  `page.route`**, so it never posts to the demo account.
 - **kindermath posts this session: 15.** Before that mock was in place, a trial run's fallback
   answered kindermath MCQs through the real `check` route. No further posts after the fix.
-- **Layout bugs seen (not fixed yet):** phone-landscape text keypad clipped top and bottom (deck
-  `justify-content: center` + `overflow-y: auto`, so use `safe center`); phone-landscape dial pad
-  columns uneven (`repeat(3, 1fr)` grows to fit FIRE!, so use `minmax(0, 1fr)`); a numeric `allow`
-  extra takes a whole row; the "pick 1–4" ship bubble shows on touch; the 🛠 DEV button overlaps the
-  ⌫ key on phones; the wrong toast covers most of the portrait stage.
-- **Keyboard proposal (awaiting the user):** A numeric pad with an extras column (− . /), B an
-  expression pad (digits + x y ^ + − = ( ) / .), C a QWERTY text keyboard with a 123 toggle.
-  Contract option 1 (recommended): `AnswerInputSpec.kind: 'numeric' | 'expression' | 'text'`.
-  kindermath option a (recommended): map an optional upstream `answer: 'number' | 'expression' |
-  'text'` hint, falling back to `expression` for TYPED (this also fixes "=" being rejected).
-  Alternative: fall back to numeric. Every TYPED question sampled (6 Intro Algebra lessons) had a
-  numeric answer, and upstream currently sends no answer-kind field.
-- **Architecture audit** (two Fable agents, read-only). The seams hold: no bundled generators,
-  credentials stay server-side, route allowlist, deterministic engine, DEV-only harness. Findings,
-  awaiting the user's OK:
-  high: `POST kindermath/check` has no rate limit (anyone can post to the demo account);
-  `check:dist` markers are mostly identifiers that minification renames, and `deploy` skips it.
-  med: the stub login takes real credentials and reports logged-in; `maxChoices` is missing from
-  the contract (4 is hard-coded in several places); the prod session pipeline is untested in DEV;
-  the cache key includes the query string; the api tests aren't in `bun run test`; game identity
-  constants are duplicated (`meta.ts`); kindermath pool order breaks seeded replays (sort by id).
-  low: game words in `generators/types.ts`, UUID/SLUG/question types duplicated across the
-  kindermath halves, `ctx.api` isn't path-sandboxed, unlogged 502s, fixture reachable by URL in
-  prod, dead `kit/fsm.ts`, README dependency rule omits `shared/rng`, storage-only unrecorded guard.
+- **Layout fixes (done, done by subagents in worktrees and then merged):**
+  - Deck: `safe center`; `minmax(0, 1fr)` pad columns.
+  - Numeric extras (− . /) sit in a 4th column (`numericPadLayout`).
+  - The landscape text pad is 6 columns, 8 rows, and fits 844×390 (`textPadLayout`).
+  - Game over and settings fit short screens; dialogs open scrolled to the top.
+  - The 🛠 DEV toggle is a small tab at the top centre.
+  - Touch devices show "tap an answer" (`GameViewOptions.touch`).
+  - In the wide layout the question banner sits in the HUD row (`GameView.setReservedTop` keeps the
+    bubble clear). The wrong toast and the pending chip sit on the side of the stage away from the
+    ship (`ui/overlays.ts`), and are compact on small stages.
+- **Keyboards (user decision):**
+  - Numeric answers, including negatives and fractions, keep the in-game dial pad.
+  - In the stacked (portrait) layout on touch screens, text answers use the **system keyboard**:
+    `ui/SystemAnswerInput.tsx` diffs the field against the engine quiver (`quiverEdits`), refuses
+    characters with `acceptsChar` (shake + help line from `allowedCharsHint`), and fires on Enter.
+    `useVisualViewport` fits the layout to what the soft keyboard leaves visible. The rule is
+    `usesSystemKeyboard()` in `ui/controls.ts`; landscape keeps the in-game text pad.
+  - No `AnswerInputSpec` change.
+  - Not verifiable headless: real soft keyboards, IME and autocorrect; iOS opens the keyboard only
+    on a tap.
+- **Architecture audit** (two Fable agents, read-only). The seams hold. Fixed items are listed under
+  "Audit fixes" below.
+  Still open:
+  - the prod session pipeline is untested in DEV (Pipeline seam + `session.test.ts`);
+  - game identity constants are duplicated (`meta.ts`);
+  - UUID/SLUG/question types are duplicated across the kindermath halves (`protocol.ts`);
+  - `ctx.api` isn't path-sandboxed; 502s aren't logged; fixture is reachable by URL in prod;
+  - `kit/fsm.ts` is dead code; the unrecorded guard is storage-only;
+  - the stub login form collects credentials (goes away with auth phase 2).
+- **Auth phase 1 (merged, not wired):** `src/shared/auth/` (provider contract, `createAuth` facade,
+  guest stub, `ui/PlayerBadge`), `api/src/auth/` (guest identity verifier), design and migration plan
+  in `docs/AUTH.md`. User decisions:
+  - generators may depend on auth (never the reverse), so plugin login goes through the platform auth
+    layer;
+  - scores support both guest and account.
+  Phase 2 wiring waits on the six open questions in AUTH.md.
 
-## Audit fixes (session 5)
+## Audit fixes (session 4)
 
 - API: per-client rate limits (Workers `ratelimits`: check 30/min, session/login/logout 20/min,
-  `api/src/ratelimit.ts`, 429 + Retry-After); kindermath cache key ignores the query string; pool
+  `api/src/ratelimit.ts`, 429 + Retry-After); the kindermath cache key ignores the query string; pool
   pulls run in parallel. `bun run test` runs `./src ./api`.
 - `check:dist` inspects `.vite/manifest.json` + `.vite/modules.json` for `harness/` paths and scans for
   harness-only literals; `deploy` runs it. `public/.assetsignore` keeps `.vite/` out of the deploy.
 - Contract: `ProblemRequirements.maxChoices` (optional), `GameDefinition.maxChoices`,
-  `gameRequirements(game)`. math/fixture shrink choices (correct kept); kindermath drops MCQs over the
-  limit; conformance, engine (`MAX_CHOICES`, defensive slice) and harness derive from it.
-  **Follow-up (ui owner):** `ui/session.ts` still passes `{ formats }` — pass
-  `gameRequirements(game)` (or add `maxChoices`) so browser sessions tell plugins the limit.
-- kindermath: pool sorted by id (seeded replays reproduce); TYPED input is now
+  `gameRequirements(game)`. math and fixture shrink choices (the correct one is kept); kindermath drops
+  MCQs over the limit. Conformance, the engine (`MAX_CHOICES`, defensive slice), the harness and
+  browser sessions (`ui/session.ts`) all use it.
+- kindermath: the pool is sorted by id (seeded replays reproduce). TYPED input is now
   `{ text, 16, '-./x^=+()' }` (space is accepted by text), and an optional upstream
   `answer: 'number'` maps to `{ numeric, 8, '-./' }`.
 
@@ -173,6 +184,10 @@ Open / next:
   a `login` hook for real per-user login later. Checks POST practice attempts to the demo
   account — keep live checks to a handful.
 - Confirm architecture changes with the user before large implementation.
+- Keyboards: numeric (incl. negatives and fractions) → in-game pad; non-numeric text in the portrait
+  layout → system keyboard. No `AnswerInputSpec` contract change.
+- Auth: one platform auth layer; generators may take info from it (that direction only). Scores
+  support both guest and account.
 
 ## Environment notes
 
