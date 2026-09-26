@@ -20,6 +20,8 @@ interface BuiltManifestEntry {
   description: string
   kind: 'client' | 'hybrid'
   formats: ProblemFormat[]
+  /** Test-only plugin (e.g. `fixture`): launchers hide it outside the dev harness. */
+  hidden?: boolean
   /** Content hash of the bundle. */
   version: string
   /** Path of the bundle relative to the API's static assets root, e.g. "plugins/math.1a2b3c4d5e.js". */
@@ -51,7 +53,8 @@ async function readMeta(id: string, entry: string) {
   if (formats.length === 0 || formats.some((f) => !PROBLEM_FORMATS.includes(f))) {
     fail(`${id}: formats must be a non-empty subset of ${PROBLEM_FORMATS.join(', ')}`)
   }
-  return { name: plugin.name, description: plugin.description, kind: plugin.kind, formats }
+  if (plugin.hidden !== undefined && typeof plugin.hidden !== 'boolean') fail(`${id}: hidden must be a boolean`)
+  return { name: plugin.name, description: plugin.description, kind: plugin.kind, formats, ...(plugin.hidden ? { hidden: true } : {}) }
 }
 
 async function bundle(id: string, entry: string): Promise<{ file: string; hash: string; code: string }> {
@@ -96,7 +99,7 @@ async function main() {
       module: `plugins/${file}`,
       source: relative(ROOT, entry).split('\\').join('/'),
     })
-    console.log(`  ${id.padEnd(16)} ${meta.kind.padEnd(7)} plugins/${file}`)
+    console.log(`  ${id.padEnd(16)} ${meta.kind.padEnd(7)} plugins/${file}${meta.hidden ? ' (hidden)' : ''}`)
   }
 
   // Clean stale bundles; the directory is build output only.
