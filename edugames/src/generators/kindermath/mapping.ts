@@ -71,6 +71,10 @@ export function toProblem(q: KinderQuestion): Problem | null {
  * MCQs with more choices than `requirements.maxChoices` are DROPPED, not
  * truncated: answers are checked server-side, so the browser half doesn't know
  * which choice is correct and truncating could remove it.
+ *
+ * The result is sorted by id: the server half unions random upstream pulls, so
+ * arrival order varies between loads, and a seeded picker must see the same
+ * pool order for replays to reproduce.
  */
 export function mapPool(questions: KinderQuestion[], requirements: ProblemRequirements): Problem[] {
   const allowed = new Set(usableFormats(requirements))
@@ -82,7 +86,7 @@ export function mapPool(questions: KinderQuestion[], requirements: ProblemRequir
     if (p.choices && p.choices.length > maxChoices) continue
     out.push(p)
   }
-  return out
+  return out.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
 }
 
 /**

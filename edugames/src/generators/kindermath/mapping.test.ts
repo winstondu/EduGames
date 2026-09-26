@@ -104,6 +104,19 @@ describe('mapPool', () => {
     // Below two choices multiple-choice can't be shown at all.
     expect(mapPool([five, mcq, typed], { ...both, maxChoices: 1 }).map((p) => p.id)).toEqual(['q-typed'])
   })
+  test('sorts by id so seeded runs reproduce whatever order upstream returned', () => {
+    const qs: KinderQuestion[] = ['q3', 'q10', 'q1', 'q2', 'Q0'].map((id, i) => ({ id, kind: 'TYPED', prompt: `p${id}`, difficulty: 1 + (i % 2) }))
+    const reqs = { formats: ['freeform'] as const }
+    const a = mapPool(qs, reqs)
+    const b = mapPool([...qs].reverse(), reqs)
+    expect(a.map((p) => p.id)).toEqual(['Q0', 'q1', 'q10', 'q2', 'q3'])
+    expect(b).toEqual(a)
+    const run = (pool: typeof a) => {
+      const picker = createPicker(pool, createRng(7))
+      return Array.from({ length: 12 }, (_, i) => picker.next(1 + (i % 2)).id)
+    }
+    expect(run(b)).toEqual(run(a))
+  })
 })
 
 describe('createPicker', () => {
