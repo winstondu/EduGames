@@ -162,6 +162,7 @@ async function readJsonBody(request: Request): Promise<unknown> {
 
 class BadRequest extends Error {}
 
+/** Upstream practice question; passed through as-is (unknown fields included, e.g. an `answer` kind hint). */
 interface KinderQuestion {
   id: string
   kind: string
@@ -169,6 +170,8 @@ interface KinderQuestion {
   choices?: { id: string; text: string }[]
   hint?: string
   difficulty?: number
+  /** Optional answer-kind hint for TYPED questions ('number' | 'expression' | 'text'); the browser half maps it. */
+  answer?: string
 }
 
 /** Pull practice several times (in parallel) and union by question id (each pull is a random subset). */

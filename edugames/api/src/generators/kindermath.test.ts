@@ -161,6 +161,14 @@ describe('question pool', () => {
     expect(calls[0].url).toBe(`https://api.kindermath.org/v1/lessons/${id}/practice`)
   })
 
+  test('passes question fields through unchanged (e.g. the answer-kind hint)', async () => {
+    const id = 'a6e6d424-ebc2-4607-99cf-c52808e3dd8f'
+    const q = { id: 'q1', kind: 'TYPED', prompt: 'Solve $x + 1 = 4$.', answer: 'number', difficulty: 2 }
+    responder = () => jsonResponse([q])
+    const pool = await readBody<unknown[]>(await call('GET', `lessons/${id}/questions`))
+    expect(pool).toEqual([q])
+  })
+
   test('pulls run in parallel', async () => {
     const id = 'a6e6d424-ebc2-4607-99cf-c52808e3dd8f'
     const release: (() => void)[] = []

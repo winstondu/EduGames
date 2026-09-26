@@ -3,7 +3,7 @@
  * host `Problem`s, label extraction, and the level-aware picker. DOM-free and
  * side-effect-free so it can be unit-tested with a seeded rng.
  */
-import { choiceLimit, usableFormats, type Problem, type ProblemRequirements } from '../types'
+import { choiceLimit, usableFormats, type AnswerInputSpec, type Problem, type ProblemRequirements } from '../types'
 import { shuffle, type Rng } from '../../shared/rng'
 
 /** One question as returned by our server half (mirrors api.kindermath.org). */
@@ -14,10 +14,27 @@ export interface KinderQuestion {
   choices?: { id: string; text: string }[]
   hint?: string
   difficulty?: number
+  /**
+   * Optional answer-kind hint for TYPED questions (upstream may not send it yet):
+   * 'number' → numeric pad; 'expression' / 'text' / absent / unknown → text input.
+   */
+  answer?: 'number' | 'expression' | 'text'
 }
 
-/** Input spec used for TYPED (freeform) problems — a superset of the plugin default. */
-export const TYPED_INPUT = { kind: 'text', maxLength: 12, allow: '-./x^' } as const
+/**
+ * Input for TYPED questions without a 'number' hint — a superset of the plugin default.
+ * Letters, digits and space are always accepted for text; `allow` adds the math symbols so
+ * "x = 3", "2(x+1)" and "x^2 - 1/2" can be typed.
+ */
+export const TYPED_INPUT = { kind: 'text', maxLength: 16, allow: '-./x^=+()' } as const satisfies AnswerInputSpec
+
+/** Input for TYPED questions hinted `answer: 'number'`: the numeric pad, incl. negatives, decimals, fractions. */
+export const TYPED_NUMBER_INPUT = { kind: 'numeric', maxLength: 8, allow: '-./' } as const satisfies AnswerInputSpec
+
+/** Input spec for a TYPED question, from its optional answer-kind hint. */
+export function typedInput(q: Pick<KinderQuestion, 'answer'>): AnswerInputSpec {
+  return q.answer === 'number' ? { ...TYPED_NUMBER_INPUT } : { ...TYPED_INPUT }
+}
 
 const MATH_SEGMENT = /\$([^$]+)\$/g
 
@@ -59,7 +76,7 @@ export function toProblem(q: KinderQuestion): Problem | null {
     return { ...base, format: 'multiple-choice', choices }
   }
   if (q.kind === 'TYPED') {
-    return { ...base, format: 'freeform', input: { ...TYPED_INPUT } }
+    return { ...base, format: 'freeform', input: typedInput(q) }
   }
   return null
 }

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { parseCommand, validateCommands, type PlayerCommand } from './commands'
+import { TYPED_INPUT, TYPED_NUMBER_INPUT } from '../../../generators/kindermath/mapping'
+import { describeInput, parseCommand, validateCommands, type PlayerCommand } from './commands'
 import type { GameState } from '../engine/types'
 
 function commands(input: string | object): PlayerCommand[] {
@@ -75,5 +76,32 @@ describe('validateCommands', () => {
     const mc = { ...base, inputMode: 'multiple-choice', choices: [{ id: 'a', text: '1' }, { id: 'b', text: '2' }] } as GameState
     expect(validateCommands(commands('choose 2'), mc)).toBeNull()
     expect(validateCommands(commands('choose 3'), mc)).toMatch(/only 2/)
+  })
+})
+
+describe('typed expression input', () => {
+  const freeform = (input: GameState['input']) =>
+    ({ status: 'playing', inputMode: 'freeform', targetId: 1, quiver: '', choices: [], input }) as unknown as GameState
+
+  test('expressions with =, +, (), ^ and spaces can be typed', () => {
+    const s = freeform({ ...TYPED_INPUT })
+    for (const answer of ['x = 3', '2(x+1)', 'x^2 - 1/2', '-4.5']) {
+      expect(validateCommands(commands(`answer ${answer}`), s)).toBeNull()
+    }
+    expect(validateCommands(commands('type 12345678901234567'), s)).toMatch(/too long/)
+  })
+
+  test('number hint: digits with - . / only', () => {
+    const s = freeform({ ...TYPED_NUMBER_INPUT })
+    expect(validateCommands(commands('answer -3/4'), s)).toBeNull()
+    expect(validateCommands(commands('answer 0.5'), s)).toBeNull()
+    expect(validateCommands(commands('type x'), s)).toMatch(/not accepted/)
+    expect(validateCommands(commands('type 1 2'), s)).toMatch(/" " not accepted/)
+  })
+
+  test('describeInput spells out the character set', () => {
+    expect(describeInput(TYPED_INPUT)).toBe('letters/digits/space and "-./x^=+()", max 16')
+    expect(describeInput(TYPED_NUMBER_INPUT)).toBe('digits and "-./", max 8')
+    expect(describeInput({ kind: 'numeric', maxLength: 4, allow: '- ' })).toBe('digits and "-" and space, max 4')
   })
 })

@@ -145,9 +145,13 @@ export function parseCommand(input: string | object): ParseResult {
   return { error: 'command must be a string or an object' }
 }
 
-function describeInput(s: GameState): string {
-  const kind = s.input.kind === 'numeric' ? 'digits' : 'letters/digits'
-  return `${kind}${s.input.allow ? ` and "${s.input.allow}"` : ''}, max ${s.input.maxLength}`
+/** Accepted characters in words, e.g. `letters/digits/space and "-./x^=+()", max 16` (a space in `allow` is spelled out). */
+export function describeInput(input: GameState['input']): string {
+  const kind = input.kind === 'numeric' ? 'digits' : 'letters/digits/space'
+  const allow = input.allow ?? ''
+  const symbols = allow.replace(/ /g, '')
+  const space = allow.includes(' ') && input.kind === 'numeric' ? ' and space' : ''
+  return `${kind}${symbols ? ` and "${symbols}"` : ''}${space}, max ${input.maxLength}`
 }
 
 /**
@@ -166,8 +170,8 @@ export function validateCommands(commands: readonly PlayerCommand[], s: GameStat
         break
       case 'typeChar':
         if (s.inputMode !== 'freeform') return s.targetId === null ? 'no target in this lane' : 'target is multiple choice: use "choose <n>"'
-        if (!acceptsChar(s.input, c.char)) return `"${c.char}" not accepted (input: ${describeInput(s)})`
-        if (++quiver > s.input.maxLength) return `answer too long (input: ${describeInput(s)})`
+        if (!acceptsChar(s.input, c.char)) return `"${c.char}" not accepted (input: ${describeInput(s.input)})`
+        if (++quiver > s.input.maxLength) return `answer too long (input: ${describeInput(s.input)})`
         break
       case 'clearQuiver':
         quiver = 0

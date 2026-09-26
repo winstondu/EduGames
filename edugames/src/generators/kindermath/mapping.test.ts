@@ -5,6 +5,7 @@ import {
   extractLabel,
   mapPool,
   toLevel,
+  TYPED_INPUT,
   toProblem,
   type KinderQuestion,
 } from './mapping'
@@ -64,11 +65,21 @@ describe('toProblem', () => {
     expect(p.label).toBe('4x + 6x')
     expect(p.hint).toBe('Add the coefficients.')
   })
-  test('maps TYPED to freeform with the extended input spec', () => {
+  test('maps TYPED to freeform with the expression text spec', () => {
     const p = toProblem(typed)!
     expect(p.format).toBe('freeform')
-    expect(p.input).toEqual({ kind: 'text', maxLength: 12, allow: '-./x^' })
+    expect(p.input).toEqual({ kind: 'text', maxLength: 16, allow: '-./x^=+()' })
     expect(p.label).toBeUndefined()
+  })
+  test("TYPED answer hint: 'number' → numeric pad; 'expression' / 'text' / unknown → text", () => {
+    expect(toProblem({ ...typed, answer: 'number' })!.input).toEqual({ kind: 'numeric', maxLength: 8, allow: '-./' })
+    for (const answer of ['expression', 'text', 'fraction', undefined]) {
+      expect(toProblem({ ...typed, answer: answer as KinderQuestion['answer'] })!.input).toEqual({ ...TYPED_INPUT })
+    }
+    // Each problem gets its own spec object (hosts may not mutate a shared constant).
+    expect(toProblem(typed)!.input).not.toBe(toProblem(typed)!.input)
+    // MCQs ignore the hint.
+    expect(toProblem({ ...mcq, answer: 'number' })!.input).toBeUndefined()
   })
   test('rejects MCQ without choices', () => {
     expect(toProblem({ id: 'x', kind: 'MCQ', prompt: '$1$' })).toBeNull()
