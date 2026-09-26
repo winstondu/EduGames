@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Space Shooter view preview</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #07070d;
+        color: #fff6e0;
+        font: 14px/1.4 system-ui, sans-serif;
+      }
+      #stage {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #hint {
+        position: fixed;
+        right: 8px;
+        top: 4px;
+        max-width: 40ch;
+        font-size: 11px;
+        opacity: 0.45;
+        pointer-events: none;
+      }
+      .clean #hint {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage"><canvas id="game"></canvas></div>
+    <div id="hint">
+      ?direction=ltr|rtl &amp;lanes=3..5 &amp;ship=classic|scout|interceptor &amp;auto=0 (keys: ↑↓, digits, Enter, 1–4 for choices)
+      &amp;shield=N &amp;boost=1 &amp;freeze=seconds &amp;clean=1
+    </div>
+    <script>
+      if (new URLSearchParams(location.search).get('clean') === '1') document.documentElement.classList.add('clean')
+    </script>
+    <script type="module" src="./view-preview.ts"></script>
+  </body>
+</html>
