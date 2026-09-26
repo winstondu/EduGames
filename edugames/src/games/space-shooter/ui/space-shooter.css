@@ -1144,3 +1144,153 @@ kbd {
     display: none;
   }
 }
+
+/* ── Speed badge + key settings ─────────────────────────────────────────── */
+
+.ss-slow {
+  padding-inline: calc(var(--h) * 0.14);
+}
+
+.ss-board-slow {
+  white-space: nowrap;
+}
+
+.ss-keys {
+  display: block;
+  width: 100%;
+}
+
+.ss-keys > summary {
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.ss-keymap {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.9rem;
+}
+
+.ss-keymap .keymap-presets {
+  display: inline-flex;
+  border: var(--border) solid var(--ink);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 3px 3px 0 var(--ink);
+  justify-self: start;
+}
+
+.ss-keymap .keymap-preset {
+  min-height: 40px;
+  padding: 4px 14px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.ss-keymap .keymap-preset + .keymap-preset {
+  border-inline-start: var(--border) solid var(--ink);
+}
+
+.ss-keymap .keymap-preset[aria-checked='true'] {
+  background: var(--star);
+}
+
+.ss-keymap .keymap-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ss-keymap .keymap-table th,
+.ss-keymap .keymap-table td {
+  padding: 2px 8px 2px 0;
+  text-align: start;
+}
+
+.ss-keymap .keymap-table thead {
+  display: none;
+}
+
+.ss-keymap .keymap-group th {
+  padding-top: 6px;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.ss-keymap .keymap-action {
+  width: 1%;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.ss-keymap .keymap-slot {
+  display: inline-flex;
+  margin: 2px 4px 2px 0;
+  vertical-align: middle;
+}
+
+.ss-keymap .keymap-key,
+.ss-keymap .keymap-add,
+.ss-keymap .keymap-remove,
+.ss-keymap .keymap-reset {
+  min-height: 30px;
+  font: inherit;
+  color: var(--ink);
+  background: #fff;
+  border: 2px solid var(--ink);
+  cursor: pointer;
+}
+
+.ss-keymap .keymap-key {
+  min-width: 34px;
+  padding: 0 8px;
+  font-weight: 700;
+  border-radius: 8px 0 0 8px;
+}
+
+.ss-keymap .keymap-remove {
+  padding: 0 6px;
+  border-inline-start: 0;
+  border-radius: 0 8px 8px 0;
+}
+
+.ss-keymap .keymap-add {
+  min-width: 30px;
+  border-style: dashed;
+  border-radius: 8px;
+}
+
+.ss-keymap .keymap-reset {
+  justify-self: start;
+  padding: 0 12px;
+  border-radius: 10px;
+}
+
+.ss-keymap .keymap-reset:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ss-keymap .is-capturing {
+  background: var(--star);
+}
+
+.ss-keymap .is-conflict {
+  background: #ffd6d6;
+}
+
+.ss-keymap .keymap-status:empty {
+  display: none;
+}
+
+.ss-keymap .keymap-conflicts {
+  margin: 0;
+  padding-inline-start: 18px;
+  color: #b3261e;
+}

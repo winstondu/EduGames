@@ -1,6 +1,15 @@
 /** Small React hooks for the space shooter screen. */
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { AudioDirector } from '../../../shared/kit/audio'
+import { createKeymap, loadKeymap, type Keymap } from '../../../shared/kit/input/keymap'
+import { SHOOTER_ACTIONS } from '../input/actions'
+import { GAME_ID } from '../settings'
+
+/** The player's keymap (preset + rebinds, persisted per game); one instance per game screen. */
+export function useShooterKeymap(): Keymap {
+  const [keymap] = useState(() => createKeymap(SHOOTER_ACTIONS, loadKeymap(GAME_ID)))
+  return keymap
+}
 
 export function useMediaQuery(query: string): boolean {
   return useSyncExternalStore(

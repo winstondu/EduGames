@@ -1,3 +1,4 @@
+import { sanitizeGameSpeed, type GameSpeed } from '../../shared/kit/time'
 import { MAX_LANES, MIN_LANES, type Direction } from './engine/types'
 import type { ShipSkinId } from './assets/ships'
 
@@ -8,12 +9,15 @@ export interface GameSettings {
   ship: ShipSkinId
   direction: Direction
   lanes: number
+  /** Real-time pace (slow motion for younger players); changes apply live. */
+  speed: GameSpeed
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
   ship: 'classic',
   direction: 'ltr',
   lanes: 4,
+  speed: 1,
 }
 
 const STORAGE_KEY = 'edugames.space-shooter.settings'
@@ -44,5 +48,11 @@ export function sanitizeSettings(value: unknown): GameSettings {
     ship: ship ?? DEFAULT_SETTINGS.ship,
     direction: v.direction === 'rtl' ? 'rtl' : 'ltr',
     lanes: Number.isInteger(lanes) ? Math.min(MAX_LANES, Math.max(MIN_LANES, lanes)) : DEFAULT_SETTINGS.lanes,
+    speed: sanitizeGameSpeed(v.speed),
   }
+}
+
+/** Settings whose change needs a new run (the view is built for them); speed applies live. */
+export function needsRestart(a: GameSettings, b: GameSettings): boolean {
+  return a.ship !== b.ship || a.direction !== b.direction || a.lanes !== b.lanes
 }

@@ -82,3 +82,8 @@ export function setUnrecorded(on: boolean, env: UnrecordedEnv = browserEnv()): v
   write(env.local, on)
   if (!on) write(env.session, false)
 }
+
+/** Turn the flag on for this tab only (sessionStorage), e.g. when the DEV harness takes over. */
+export function markUnrecordedForTab(env: UnrecordedEnv = browserEnv()): void {
+  write(env.session, true)
+}

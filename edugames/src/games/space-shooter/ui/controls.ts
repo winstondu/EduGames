@@ -1,11 +1,13 @@
 /**
- * Pure input mapping for the space shooter screen: keyboard → engine
- * commands, tap position → lane, keypad layouts. No DOM access.
+ * Pure input mapping for the space shooter screen: keyboard (via the
+ * player's keymap) → engine commands, tap position → lane, keypad layouts. No DOM access.
  */
 import type { AnswerInputSpec, Problem, ProblemFormat } from '../../../generators/types'
+import type { KeyLike, Keymap } from '../../../shared/kit/input/keymap'
 import { mathTextToPlain } from '../../../shared/mathtext/parse'
 import { acceptsChar } from '../engine/input'
 import { WORLD, laneHeight, type Command } from '../engine/types'
+import { mapActionToCommand } from '../input/actions'
 
 export interface KeyContext {
   inputMode: ProblemFormat | null
@@ -16,36 +18,32 @@ export type KeyAction = { type: 'command'; command: Command } | { type: 'toggleP
 
 const cmd = (command: Command): KeyAction => ({ type: 'command', command })
 
-const CHOICE_DIGITS = '1234'
-const CHOICE_LETTERS = 'abcd'
+/** The subset of KeyboardEvent the mapping reads. */
+export type KeyEventLike = KeyLike & { key: string }
+
+/** Actions that auto-repeat while a key is held. */
+export const REPEATING_ACTIONS: ReadonlySet<string> = new Set(['moveUp', 'moveDown', 'backspace'])
 
 /**
- * Map a `KeyboardEvent.key` to an action, or null if the key isn't ours.
- * Typing wins over shortcuts: with a text quiver, W/S/P are letters.
+ * Map a key event to an action through the player's keymap, or null if the
+ * key isn't ours. Typing wins over bindings: a character the current freeform
+ * answer accepts types (so W types into a text answer but still moves the
+ * ship while the answer is numeric). Unbound: Delete clears the quiver.
  */
-export function keyToAction(key: string, ctx: KeyContext): KeyAction | null {
-  if (key === 'Escape') return { type: 'togglePause' }
-  if (key === 'ArrowUp') return cmd({ type: 'moveUp' })
-  if (key === 'ArrowDown') return cmd({ type: 'moveDown' })
-
-  if (ctx.inputMode === 'freeform') {
-    if (key === 'Enter' || key === ' ') return cmd({ type: 'fire' })
-    if (key === 'Backspace') return cmd({ type: 'backspace' })
-    if (key === 'Delete') return cmd({ type: 'clearQuiver' })
-    if (acceptsChar(ctx.input, key)) return cmd({ type: 'typeChar', char: key })
-  } else if (ctx.inputMode === 'multiple-choice') {
-    const index = key.length === 1 ? Math.max(CHOICE_DIGITS.indexOf(key), CHOICE_LETTERS.indexOf(key.toLowerCase())) : -1
-    if (index >= 0) return cmd({ type: 'choose', index })
+export function keyToAction(keymap: Keymap, event: KeyEventLike, ctx: KeyContext): KeyAction | null {
+  const freeform = ctx.inputMode === 'freeform'
+  const typing = freeform && [...event.key].length === 1 && acceptsChar(ctx.input, event.key)
+  const id = keymap.match(event, { textEntry: typing })
+  if (id === 'pause') return { type: 'togglePause' }
+  if (id) {
+    if (/^choose/.test(id) && ctx.inputMode !== 'multiple-choice') return null
+    if ((id === 'fire' || id === 'backspace') && !freeform) return null
+    const command = mapActionToCommand(id)
+    return command ? cmd(command) : null
   }
-
-  switch (key.length === 1 ? key.toLowerCase() : '') {
-    case 'w':
-      return cmd({ type: 'moveUp' })
-    case 's':
-      return cmd({ type: 'moveDown' })
-    case 'p':
-      return { type: 'togglePause' }
-  }
+  if (event.ctrlKey || event.metaKey || event.altKey) return null
+  if (typing) return cmd({ type: 'typeChar', char: event.key })
+  if (freeform && event.code === 'Delete') return cmd({ type: 'clearQuiver' })
   return null
 }
 
@@ -92,4 +90,10 @@ const squash = (s: string) => s.replace(/\s+/g, '')
 export function accuracyPercent(correct: number, wrong: number): number {
   const total = correct + wrong
   return total > 0 ? Math.round((correct / total) * 100) : 0
+}
+
+/** Leaderboard entries played below normal speed (meta.speed < 1) show a 🐢. */
+export function isSlowMotion(meta: Record<string, unknown> | undefined): boolean {
+  const speed = Number(meta?.speed)
+  return Number.isFinite(speed) && speed < 1
 }

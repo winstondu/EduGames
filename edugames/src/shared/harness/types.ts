@@ -71,11 +71,46 @@ export interface Replay {
   checks: Record<number, unknown>
 }
 
+/** What `window.__edugames.open()` accepts. */
+export interface HarnessOpenOptions {
+  /** Game id, e.g. "space-shooter". */
+  game: string
+  /** Generator id, e.g. "math", "kindermath", "fixture" (hidden generators work here). */
+  gen: string
+  /** Generator options as URL params, e.g. { format: 'mc', ops: 'add' } or { lesson: '<uuid>' }. */
+  params?: Record<string, string>
+  /** Session seed (default random); the same seed + params + settings replays identically. */
+  seed?: number
+  /** Harness time scale 0.1..2 (overrides the player's speed setting while the harness runs). */
+  speed?: number
+  /** Start frozen: nothing moves until act()/time.step() (default false). */
+  lockstep?: boolean
+  /** Game-specific player settings for this run only (not saved), e.g. { lanes: 5, direction: 'rtl', ship: 'scout' }. */
+  settings?: Record<string, string | number | boolean>
+}
+
+/** The mounted session, as the meta panel shows it. */
+export interface HarnessSessionInfo {
+  game: string
+  generatorId: string
+  params: Record<string, string>
+  seed: number
+  settings: Record<string, string | number | boolean>
+}
+
 /** `window.__edugames` (DEV only). */
 export interface HarnessGlobal {
   version: 1
-  /** The mounted game's adapter, or null on the launcher. */
+  /** The mounted game's adapter, or null on the launcher / while loading. Reading it turns the unrecorded flag on. */
   harness: GameHarness | null
-  /** Navigate to a game with meta controls: generator id, variant params, seed, time scale, lockstep. */
-  open(opts: { game: string; gen: string; params?: Record<string, string>; seed?: number; speed?: number; lockstep?: boolean }): Promise<void>
+  /** The mounted session's generator, params, seed and settings, or null. */
+  session: HarnessSessionInfo | null
+  /**
+   * Navigate to a game (skipping its start screen) with meta controls. Always
+   * unrecorded. Resolves once the session is running and `harness` is set;
+   * rejects with the game's error (e.g. a generator that failed to load).
+   */
+  open(opts: HarnessOpenOptions): Promise<HarnessSessionInfo>
+  /** Back to the launcher. */
+  close(): void
 }

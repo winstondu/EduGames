@@ -6,6 +6,7 @@
 import { createRng } from '../../../shared/rng'
 import type { GeneratorContext, GeneratorPlugin, ProblemFormat, ProblemSource } from '../../../generators/types'
 import { createEngine, type Engine } from '../engine'
+import { deriveSeeds } from '../seeds'
 
 /**
  * Game id and default lane count, mirrored from settings.ts so the harness
@@ -17,14 +18,7 @@ export const DEFAULT_LANES = 4
 /** Formats the space shooter presents (mirrors its GameDefinition). */
 export const SHOOTER_FORMATS: readonly ProblemFormat[] = ['freeform', 'multiple-choice']
 
-/**
- * Engine and generator rngs from one session seed. A browser session that
- * wants its runs replayable in scripts/sim.ts must derive them the same way.
- */
-export function deriveSeeds(seed: number): { engine: number; generator: number } {
-  const s = seed >>> 0
-  return { engine: s, generator: Math.imul(s ^ 0x5bd1e995, 0x9e3779b1) >>> 0 }
-}
+export { deriveSeeds }
 
 export interface ShooterSessionOptions {
   plugin: GeneratorPlugin<unknown>

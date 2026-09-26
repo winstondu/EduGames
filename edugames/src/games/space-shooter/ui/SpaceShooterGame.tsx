@@ -9,8 +9,8 @@ import type { GameProps } from '../../types'
 import { createGeneratorContext, loadGenerator } from '../../../generators/registry'
 import { PROBLEM_FORMATS, type GeneratorPlugin, type ProblemFormat } from '../../../generators/types'
 import { UI_ICONS } from '../assets/ui'
-import { GAME_ID, loadSettings, saveSettings, type GameSettings } from '../settings'
-import { useAudioDirector, useMediaQuery, useMuted } from './hooks'
+import { GAME_ID, loadSettings, sanitizeSettings, saveSettings, type GameSettings } from '../settings'
+import { useAudioDirector, useMediaQuery, useMuted, useShooterKeymap } from './hooks'
 import { KeyboardHelp, SettingsForm } from './Menus'
 import { PlayScreen } from './PlayScreen'
 import { GameLoading, GameMessage } from './Screens'
@@ -92,13 +92,37 @@ export default function SpaceShooterGame({ generatorId, params, onExit }: GamePr
   const audio = useAudioDirector()
   const muted = useMuted(audio)
   const coarse = useMediaQuery('(pointer: coarse)')
+  const keymap = useShooterKeymap()
   const [settings, setSettings] = useState(loadSettings)
   const [run, setRun] = useState(0)
   const [seed, setSeed] = useState(randomSeed)
+  // DEV harness open(): settings for its runs only (never saved).
+  const [harnessSettings, setHarnessSettings] = useState<GameSettings | null>(null)
 
   useEffect(() => {
     if (run === 0) audio?.music('menu')
   }, [audio, run])
+
+  // DEV: a window.__edugames.open() request skips the start screen with its seed and settings.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    let live = true
+    void import('../../../shared/harness/runtime').then((runtime) => {
+      const request = live ? runtime.takeOpenRequest(GAME_ID, generatorId) : null
+      if (!request) return
+      setHarnessSettings(sanitizeSettings({ ...loadSettings(), ...request.settings }))
+      setSeed(request.seed ?? randomSeed())
+      setRun((n) => n + 1)
+    })
+    return () => {
+      live = false
+    }
+  }, [generatorId])
+
+  const setupError = setup.state === 'error' ? `${setup.title} ${setup.message}` : null
+  useEffect(() => {
+    if (import.meta.env.DEV && setupError) void import('../../../shared/harness/runtime').then((r) => r.reportOpenFailure(GAME_ID, setupError))
+  }, [setupError])
 
   function changeSettings(next: GameSettings) {
     setSettings(next)
@@ -106,7 +130,10 @@ export default function SpaceShooterGame({ generatorId, params, onExit }: GamePr
   }
 
   function start(next?: GameSettings) {
-    if (next) changeSettings(next)
+    if (next) {
+      changeSettings(next)
+      setHarnessSettings(null)
+    }
     setSeed(randomSeed())
     setRun((n) => n + 1)
   }
@@ -145,11 +172,17 @@ export default function SpaceShooterGame({ generatorId, params, onExit }: GamePr
           <p className="ss-kicker">{gameName}</p>
           <h1 className="ss-start-title comic-title">{setup.title}</h1>
           {!setup.title.includes(setup.plugin.name) && <p className="muted ss-start-sub">{setup.plugin.name}</p>}
-          <SettingsForm value={settings} onChange={changeSettings} muted={muted} onMutedChange={(m) => audio.setMuted(m)} />
+          <SettingsForm
+            value={settings}
+            onChange={changeSettings}
+            muted={muted}
+            onMutedChange={(m) => audio.setMuted(m)}
+            keymap={coarse ? undefined : keymap}
+          />
           {coarse ? (
             <p className="ss-note ss-start-help">Tap a lane to move. Tap the answer (or type it on the keypad) and hit FIRE!</p>
           ) : (
-            <KeyboardHelp />
+            <KeyboardHelp keymap={keymap} />
           )}
           <button type="button" className="btn btn--primary btn--big ss-start-button" onClick={() => start()} autoFocus>
             Start!
@@ -167,10 +200,12 @@ export default function SpaceShooterGame({ generatorId, params, onExit }: GamePr
       options={setup.options}
       title={setup.title}
       formats={formats}
-      settings={settings}
+      settings={harnessSettings ?? settings}
       audio={audio}
+      keymap={keymap}
       seed={seed}
       onRestart={start}
+      onSettingsChange={(next) => (harnessSettings ? setHarnessSettings(next) : changeSettings(next))}
       onQuit={onExit}
     />
   )

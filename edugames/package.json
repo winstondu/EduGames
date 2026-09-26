@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "check:dist": "bun scripts/check-dist.ts",
     "lint": "oxlint",
     "preview": "vite preview",
     "deploy": "bun run build && wrangler deploy",

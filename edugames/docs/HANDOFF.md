@@ -49,7 +49,11 @@ Review/fix pass not run.
 2. **Text-layer game harness** — built (`bun run sim`, `--repl`). TODO: expose it as
    tools for an LLM agent (e.g. a Sonnet driver) — either WebMCP on the DEV page or a
    small stdio MCP server wrapping the same `GameHarness` API (`state/send/act/events/time`).
-3. **Real-game harness** (part 2, TODO — next up):
+3. **Real-game harness** (part 2) — DONE in session 3 (see the shooter README "DEV
+   harness"): `window.__edugames` (`open`, `harness`, `session`, `close`), meta panel,
+   single broker via `harness.tick`, player speed setting (+ 🐢 on HUD and leaderboard),
+   key presets / rebinding via `KeymapEditor`, `deriveSeeds` in browser sessions (browser
+   replays reproduce in `bun run sim --replay`), `bun run check:dist`. Original plan:
    - DONE: the view loop uses `createTimeController` (`GameView.time`). TODO: in DEV pass
      `step: harness.tick` to `createGameView` and skip the session's own check broker
      (single broker — don't run two). Plan: route verdict/`send()` events from

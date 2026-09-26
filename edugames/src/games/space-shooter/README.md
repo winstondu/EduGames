@@ -59,3 +59,25 @@ concrete generators. Generators import only `generators/types`, `shared/rng`,
 - API Worker: `bun run dev:api` → **http://localhost:8788** (the frontend's dev `API_BASE`).
   Port 8787 is deliberately avoided — another local app may already listen there.
   Override with `VITE_API_BASE` if needed.
+
+## DEV harness (browser)
+
+`bun run dev` only — none of this is in production builds (`bun run build && bun run check:dist`).
+
+- Every DEV session runs through the harness adapter (`harness/browser.ts`): the view
+  steps via `harness.tick()`, player input goes through `harness.dispatch()` (logged for
+  replays) and the harness's check broker is the only one.
+- `window.__edugames` (`src/shared/harness/runtime.ts`):
+  ```js
+  await __edugames.open({ game: 'space-shooter', gen: 'math', params: { format: 'mc', ops: 'add' },
+    seed: 7, speed: 1, lockstep: true, settings: { lanes: 5, direction: 'rtl', ship: 'scout' } })
+  const h = __edugames.harness          // GameHarness: describe(), state(), send(), act(), events(), time, exportReplay()
+  await h.act('lane 2', { advance: 0.5 }) // command, then 0.5 s of game time; awaits answer checks
+  ```
+  `open()` skips the start screen, uses `settings` for that run only (never saved) and is
+  always **unrecorded** (so is reading `.harness`). Settings/speed from the player's own
+  menu still work; the harness scale owns the view's pace while it runs.
+- Meta panel: the 🛠 button (bottom-left) — session meta, scale / lockstep / step, command
+  console, event log, state, replay export, and an "open…" form that lists the hidden
+  `fixture` generator.
+- Browser replays run headless: `bun run sim -- --replay run.json` (seeds via `deriveSeeds`).

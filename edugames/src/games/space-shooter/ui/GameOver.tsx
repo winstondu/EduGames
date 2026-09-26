@@ -10,7 +10,7 @@ import {
 } from '../../../shared/highscores/types'
 import { isUnrecorded } from '../../../shared/unrecorded'
 import { UI_ICONS } from '../assets/ui'
-import { accuracyPercent } from './controls'
+import { accuracyPercent, isSlowMotion } from './controls'
 import { loadNickname, saveNickname } from './hooks'
 import { Modal } from './Screens'
 
@@ -204,7 +204,15 @@ export function GameOver({ result, gameId, generatorId, boardKey, boardTitle, me
                   {board.data.entries.map((entry, i) => (
                     <li key={entry.id} className={entry.id === highlight ? 'is-you' : undefined}>
                       <span className="ss-board-rank">{i + 1}</span>
-                      <span className="ss-board-name">{entry.name}</span>
+                      <span className="ss-board-name">
+                        {entry.name}
+                        {isSlowMotion(entry.meta) && (
+                          <span className="ss-board-slow" title="Played in slow motion" aria-label="slow motion">
+                            {' '}
+                            🐢
+                          </span>
+                        )}
+                      </span>
                       <span className="ss-board-score">{entry.score.toLocaleString()}</span>
                     </li>
                   ))}

@@ -1,9 +1,12 @@
-/** Settings form (start screen + pause), pause menu and settings dialog. */
-import { useId, useState } from 'react'
+/** Settings form (start screen + pause), pause menu, settings dialog and keyboard help. */
+import { useId, useState, useSyncExternalStore } from 'react'
+import { KeymapEditor } from '../../../shared/kit/input/KeymapEditor'
+import { keyLabel, saveKeymap, type Keymap } from '../../../shared/kit/input/keymap'
+import { GAME_SPEEDS, GAME_SPEED_LABELS } from '../../../shared/kit/time'
 import { SHIP_SKINS } from '../assets/ships'
 import { UI_ICONS } from '../assets/ui'
 import { MAX_LANES, MIN_LANES, type Direction } from '../engine/types'
-import type { GameSettings } from '../settings'
+import { GAME_ID, needsRestart, type GameSettings } from '../settings'
 import { Modal } from './Screens'
 
 const LANE_OPTIONS = Array.from({ length: MAX_LANES - MIN_LANES + 1 }, (_, i) => MIN_LANES + i)
@@ -18,9 +21,11 @@ export interface SettingsFormProps {
   onChange(next: GameSettings): void
   muted: boolean
   onMutedChange(muted: boolean): void
+  /** Show key presets / rebinding (keyboard players only). */
+  keymap?: Keymap
 }
 
-export function SettingsForm({ value, onChange, muted, onMutedChange }: SettingsFormProps) {
+export function SettingsForm({ value, onChange, muted, onMutedChange, keymap }: SettingsFormProps) {
   const id = useId()
   const set = (patch: Partial<GameSettings>) => onChange({ ...value, ...patch })
   return (
@@ -101,11 +106,31 @@ export function SettingsForm({ value, onChange, muted, onMutedChange }: Settings
           </div>
         </div>
       </div>
+
+      <div className="ss-setting">
+        <span className="ss-setting-label" id={`${id}-speed`}>
+          Speed
+        </span>
+        <div className="segmented" role="radiogroup" aria-labelledby={`${id}-speed`}>
+          {GAME_SPEEDS.map((speed) => (
+            <label key={speed}>
+              <input type="radio" name={`${id}-speed`} checked={value.speed === speed} onChange={() => set({ speed })} />
+              {GAME_SPEED_LABELS[speed]}
+            </label>
+          ))}
+        </div>
+        {value.speed < 1 && <p className="ss-note">Slow-motion scores get a 🐢 on the leaderboard.</p>}
+      </div>
+
+      {keymap && (
+        <details className="ss-setting ss-keys">
+          <summary className="ss-setting-label">Keys</summary>
+          <KeymapEditor keymap={keymap} onChange={(state) => saveKeymap(GAME_ID, state)} className="ss-keymap" />
+        </details>
+      )}
     </div>
   )
 }
-
-const sameSettings = (a: GameSettings, b: GameSettings) => a.ship === b.ship && a.direction === b.direction && a.lanes === b.lanes
 
 /** Settings opened from the pause menu: applying changes restarts the run. */
 export function SettingsDialog({
@@ -114,24 +139,28 @@ export function SettingsDialog({
   onMutedChange,
   onApply,
   onClose,
+  keymap,
 }: {
   settings: GameSettings
   muted: boolean
   onMutedChange(muted: boolean): void
+  /** Called with the new settings; the caller restarts when `needsRestart`. */
   onApply(next: GameSettings): void
   onClose(): void
+  keymap?: Keymap
 }) {
   const [draft, setDraft] = useState(settings)
-  const changed = !sameSettings(draft, settings)
+  const restart = needsRestart(draft, settings)
+  const changed = restart || draft.speed !== settings.speed
   return (
     <Modal label="Settings" onEscape={onClose}>
       <h2 className="ss-modal-title">Settings</h2>
-      <SettingsForm value={draft} onChange={setDraft} muted={muted} onMutedChange={onMutedChange} />
-      {changed && <p className="ss-note">Changing the ship, direction or lanes starts a new game.</p>}
+      <SettingsForm value={draft} onChange={setDraft} muted={muted} onMutedChange={onMutedChange} keymap={keymap} />
+      {restart && <p className="ss-note">Changing the ship, direction or lanes starts a new game.</p>}
       <div className="ss-actions">
         {changed ? (
           <button type="button" className="btn btn--primary" onClick={() => onApply(draft)} data-autofocus>
-            Apply &amp; restart
+            {restart ? <>Apply &amp; restart</> : 'Apply'}
           </button>
         ) : null}
         <button type="button" className="btn" onClick={onClose} data-autofocus={changed ? undefined : true}>
@@ -147,13 +176,14 @@ export function PauseMenu({
   onSettings,
   onRestart,
   onQuit,
-  keyboardHelp,
+  keymap,
 }: {
   onResume(): void
   onSettings(): void
   onRestart(): void
   onQuit(): void
-  keyboardHelp: boolean
+  /** Keyboard players get the key help. */
+  keymap?: Keymap
 }) {
   return (
     <Modal label="Paused" onEscape={onResume} className="ss-modal--narrow">
@@ -172,29 +202,39 @@ export function PauseMenu({
           <img src={UI_ICONS.back} alt="" width={24} height={24} className="ss-btn-icon" /> Quit to menu
         </button>
       </div>
-      {keyboardHelp && <KeyboardHelp />}
+      {keymap && <KeyboardHelp keymap={keymap} />}
     </Modal>
   )
 }
 
-export function KeyboardHelp() {
+/** Key help from the player's current bindings. */
+export function KeyboardHelp({ keymap }: { keymap: Keymap }) {
+  useSyncExternalStore(keymap.subscribe, () => keymap.revision, () => keymap.revision)
+  const keys = (...ids: string[]) => [...new Set(ids.flatMap((id) => keymap.bindings[id] ?? []))]
+  const kbds = (codes: string[]) =>
+    codes.length ? (
+      codes.map((code, i) => (
+        <span key={code}>
+          {i > 0 && ' '}
+          <kbd>{keyLabel(code)}</kbd>
+        </span>
+      ))
+    ) : (
+      <span className="muted">unbound</span>
+    )
+  // One key per choice (the first bound), e.g. 1 2 3 4.
+  const choices = [1, 2, 3, 4].flatMap((n) => keymap.bindings[`choose${n}`]?.slice(0, 1) ?? [])
   return (
     <dl className="ss-help">
-      <dt>
-        <kbd>↑</kbd> <kbd>↓</kbd> / <kbd>W</kbd> <kbd>S</kbd>
-      </dt>
+      <dt>{kbds(keys('moveUp', 'moveDown'))}</dt>
       <dd>Change lane</dd>
       <dt>
-        <kbd>0</kbd>–<kbd>9</kbd> then <kbd>Enter</kbd>
+        <kbd>0</kbd>–<kbd>9</kbd> then {kbds(keys('fire').slice(0, 1))}
       </dt>
       <dd>Type an answer and fire</dd>
-      <dt>
-        <kbd>1</kbd>–<kbd>4</kbd> / <kbd>A</kbd>–<kbd>D</kbd>
-      </dt>
+      <dt>{kbds(choices)}</dt>
       <dd>Pick a choice</dd>
-      <dt>
-        <kbd>Esc</kbd> / <kbd>P</kbd>
-      </dt>
+      <dt>{kbds(keys('pause'))}</dt>
       <dd>Pause</dd>
     </dl>
   )

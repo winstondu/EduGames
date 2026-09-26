@@ -9,12 +9,14 @@ export interface HudProps {
   hud: HudSnapshot
   title: string
   muted: boolean
+  /** Playing slower than normal speed (score gets a 🐢). */
+  slow?: boolean
   engine: Engine | null
   onPause(): void
   onToggleMute(): void
 }
 
-export function Hud({ hud, title, muted, engine, onPause, onToggleMute }: HudProps) {
+export function Hud({ hud, title, muted, slow, engine, onPause, onToggleMute }: HudProps) {
   const hearts = Math.max(hud.lives, START_LIVES)
   return (
     <div className="ss-hud">
@@ -44,6 +46,11 @@ export function Hud({ hud, title, muted, engine, onPause, onToggleMute }: HudPro
       </div>
 
       <div className="ss-hud-right">
+        {slow && (
+          <span className="ss-level ss-slow" title="Slow motion" role="img" aria-label="Slow motion">
+            🐢
+          </span>
+        )}
         <span className="ss-level" title="Level">
           <small>LV</small>
           {hud.level}

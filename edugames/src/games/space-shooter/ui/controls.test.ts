@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import type { AnswerInputSpec, Problem } from '../../../generators/types'
-import { WORLD, laneCenterY, type GameEvent } from '../engine/types'
-import { accuracyPercent, keypadChars, keyToAction, laneAtY, needsBanner, type KeyContext } from './controls'
+import { createKeymap, type Keymap } from '../../../shared/kit/input/keymap'
+import { WORLD, laneCenterY, type Command, type GameEvent } from '../engine/types'
+import { SHOOTER_ACTIONS } from '../input/actions'
+import { accuracyPercent, keypadChars, keyToAction, laneAtY, needsBanner, type KeyAction, type KeyContext, type KeyEventLike } from './controls'
 import { cueFor, playCues } from './cues'
 
 const numeric: AnswerInputSpec = { kind: 'numeric', maxLength: 3 }
@@ -10,54 +12,84 @@ const freeform = (input: AnswerInputSpec = numeric): KeyContext => ({ inputMode:
 const mc: KeyContext = { inputMode: 'multiple-choice', input: numeric }
 const none: KeyContext = { inputMode: null, input: numeric }
 
+/** A key event from `key` (layout character) and `code` (physical key). */
+function ev(key: string, code: string, mods: Partial<KeyEventLike> = {}): KeyEventLike {
+  return { key, code, ...mods }
+}
+const DIGIT = (d: string) => ev(d, `Digit${d}`)
+const LETTER = (l: string) => ev(l, `Key${l.toUpperCase()}`)
+const ENTER = ev('Enter', 'Enter')
+const SPACE = ev(' ', 'Space')
+
 describe('keyToAction', () => {
+  const both = createKeymap(SHOOTER_ACTIONS)
+  const arrows = createKeymap(SHOOTER_ACTIONS, { version: 1, preset: 'arrows', custom: {} })
+  const key = (e: KeyEventLike, ctx: KeyContext, keymap: Keymap = both) => keyToAction(keymap, e, ctx)
+  const command = (c: Command): KeyAction => ({ type: 'command', command: c })
+
   test('arrows and Escape work in every mode', () => {
     for (const ctx of [freeform(), freeform(text), mc, none]) {
-      expect(keyToAction('ArrowUp', ctx)).toEqual({ type: 'command', command: { type: 'moveUp' } })
-      expect(keyToAction('ArrowDown', ctx)).toEqual({ type: 'command', command: { type: 'moveDown' } })
-      expect(keyToAction('Escape', ctx)).toEqual({ type: 'togglePause' })
+      expect(key(ev('ArrowUp', 'ArrowUp'), ctx)).toEqual(command({ type: 'moveUp' }))
+      expect(key(ev('ArrowDown', 'ArrowDown'), ctx)).toEqual(command({ type: 'moveDown' }))
+      expect(key(ev('Escape', 'Escape'), ctx)).toEqual({ type: 'togglePause' })
     }
   })
 
   test('freeform numeric: digits type, Enter/Space fire, W/S/P still work', () => {
-    expect(keyToAction('7', freeform())).toEqual({ type: 'command', command: { type: 'typeChar', char: '7' } })
-    expect(keyToAction('Enter', freeform())).toEqual({ type: 'command', command: { type: 'fire' } })
-    expect(keyToAction(' ', freeform())).toEqual({ type: 'command', command: { type: 'fire' } })
-    expect(keyToAction('Backspace', freeform())).toEqual({ type: 'command', command: { type: 'backspace' } })
-    expect(keyToAction('Delete', freeform())).toEqual({ type: 'command', command: { type: 'clearQuiver' } })
-    expect(keyToAction('w', freeform())).toEqual({ type: 'command', command: { type: 'moveUp' } })
-    expect(keyToAction('S', freeform())).toEqual({ type: 'command', command: { type: 'moveDown' } })
-    expect(keyToAction('p', freeform())).toEqual({ type: 'togglePause' })
-    expect(keyToAction('x', freeform())).toBeNull()
+    expect(key(DIGIT('7'), freeform())).toEqual(command({ type: 'typeChar', char: '7' }))
+    expect(key(ENTER, freeform())).toEqual(command({ type: 'fire' }))
+    expect(key(SPACE, freeform())).toEqual(command({ type: 'fire' }))
+    expect(key(ev('Backspace', 'Backspace'), freeform())).toEqual(command({ type: 'backspace' }))
+    expect(key(ev('Delete', 'Delete'), freeform())).toEqual(command({ type: 'clearQuiver' }))
+    expect(key(LETTER('w'), freeform())).toEqual(command({ type: 'moveUp' }))
+    expect(key(ev('S', 'KeyS'), freeform())).toEqual(command({ type: 'moveDown' }))
+    expect(key(LETTER('p'), freeform())).toEqual({ type: 'togglePause' })
+    expect(key(LETTER('x'), freeform())).toBeNull()
   })
 
   test('freeform numeric honours `allow`', () => {
     const signed = freeform({ kind: 'numeric', maxLength: 4, allow: '-' })
-    expect(keyToAction('-', signed)).toEqual({ type: 'command', command: { type: 'typeChar', char: '-' } })
-    expect(keyToAction('-', freeform())).toBeNull()
+    expect(key(ev('-', 'Minus'), signed)).toEqual(command({ type: 'typeChar', char: '-' }))
+    expect(key(ev('-', 'Minus'), freeform())).toBeNull()
   })
 
   test('freeform text: letters type (even W/S/P)', () => {
-    expect(keyToAction('w', freeform(text))).toEqual({ type: 'command', command: { type: 'typeChar', char: 'w' } })
-    expect(keyToAction('P', freeform(text))).toEqual({ type: 'command', command: { type: 'typeChar', char: 'P' } })
-    expect(keyToAction('^', freeform(text))).toEqual({ type: 'command', command: { type: 'typeChar', char: '^' } })
-    expect(keyToAction('Shift', freeform(text))).toBeNull()
+    expect(key(LETTER('w'), freeform(text))).toEqual(command({ type: 'typeChar', char: 'w' }))
+    expect(key(ev('P', 'KeyP'), freeform(text))).toEqual(command({ type: 'typeChar', char: 'P' }))
+    expect(key(ev('^', 'Digit6'), freeform(text))).toEqual(command({ type: 'typeChar', char: '^' }))
+    expect(key(ev('Shift', 'ShiftLeft'), freeform(text))).toBeNull()
   })
 
-  test('multiple choice: 1–4 and A–D choose', () => {
-    expect(keyToAction('1', mc)).toEqual({ type: 'command', command: { type: 'choose', index: 0 } })
-    expect(keyToAction('4', mc)).toEqual({ type: 'command', command: { type: 'choose', index: 3 } })
-    expect(keyToAction('b', mc)).toEqual({ type: 'command', command: { type: 'choose', index: 1 } })
-    expect(keyToAction('D', mc)).toEqual({ type: 'command', command: { type: 'choose', index: 3 } })
-    expect(keyToAction('5', mc)).toBeNull()
-    expect(keyToAction('Enter', mc)).toBeNull()
-    expect(keyToAction('s', mc)).toEqual({ type: 'command', command: { type: 'moveDown' } })
+  test('multiple choice: digits (and numpad in arrows/both) choose; letters never do', () => {
+    expect(key(DIGIT('1'), mc)).toEqual(command({ type: 'choose', index: 0 }))
+    expect(key(DIGIT('4'), mc)).toEqual(command({ type: 'choose', index: 3 }))
+    expect(key(ev('2', 'Numpad2'), mc, arrows)).toEqual(command({ type: 'choose', index: 1 }))
+    expect(key(LETTER('b'), mc)).toBeNull()
+    expect(key(LETTER('d'), mc)).toBeNull()
+    expect(key(DIGIT('5'), mc)).toBeNull()
+    expect(key(ENTER, mc)).toBeNull()
+    expect(key(LETTER('s'), mc)).toEqual(command({ type: 'moveDown' }))
   })
 
   test('no target: typing and choosing do nothing', () => {
-    expect(keyToAction('3', none)).toBeNull()
-    expect(keyToAction('a', none)).toBeNull()
-    expect(keyToAction('Enter', none)).toBeNull()
+    expect(key(DIGIT('3'), none)).toBeNull()
+    expect(key(LETTER('a'), none)).toBeNull()
+    expect(key(ENTER, none)).toBeNull()
+  })
+
+  test('presets and rebinding: arrows-only ignores W; a rebound key moves', () => {
+    expect(key(LETTER('w'), mc, arrows)).toBeNull()
+    const custom = createKeymap(SHOOTER_ACTIONS, { version: 1, preset: 'arrows', custom: { moveUp: ['KeyI'] } })
+    expect(key(LETTER('i'), mc, custom)).toEqual(command({ type: 'moveUp' }))
+    expect(key(ev('ArrowUp', 'ArrowUp'), mc, custom)).toBeNull()
+    // A rebound printable key still yields to typing when the answer accepts it.
+    expect(key(LETTER('i'), freeform(text), custom)).toEqual(command({ type: 'typeChar', char: 'i' }))
+  })
+
+  test('modifier chords are never ours', () => {
+    expect(key(DIGIT('1'), mc)).not.toBeNull()
+    expect(key(ev('1', 'Digit1', { ctrlKey: true }), mc)).toBeNull()
+    expect(key(ev('7', 'Digit7', { metaKey: true }), freeform())).toBeNull()
   })
 })
 

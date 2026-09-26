@@ -8,10 +8,11 @@ import type { AnswerInputSpec, GeneratorPlugin, ProblemFormat } from '../../../g
 import type { AudioDirector } from '../../../shared/kit/audio'
 import { useHud } from '../../../shared/kit/hooks'
 import { createHudStore } from '../../../shared/kit/hudStore'
+import type { Keymap } from '../../../shared/kit/input/keymap'
 import { START_LIVES, WORLD, type Command } from '../engine/types'
-import { GAME_ID, type GameSettings } from '../settings'
+import { GAME_ID, needsRestart, type GameSettings } from '../settings'
 import { ChoicePad, Keypad, QuestionBanner, QuiverReadout } from './Answers'
-import { keyToAction, laneAtY, needsBanner } from './controls'
+import { keyToAction, laneAtY, needsBanner, REPEATING_ACTIONS } from './controls'
 import { FeedbackToast, PendingChip, type WrongFeedback } from './Feedback'
 import { GameOver, type RunResult } from './GameOver'
 import { Hud } from './Hud'
@@ -31,8 +32,11 @@ export interface PlayScreenProps {
   formats: readonly ProblemFormat[]
   settings: GameSettings
   audio: AudioDirector
+  keymap: Keymap
   seed: number
   onRestart(next?: GameSettings): void
+  /** Settings that apply live (speed): persist them without restarting. */
+  onSettingsChange(next: GameSettings): void
   onQuit(): void
 }
 
@@ -80,7 +84,7 @@ function isEditable(target: EventTarget | null): boolean {
 }
 
 export function PlayScreen(props: PlayScreenProps) {
-  const { plugin, settings, audio, title } = props
+  const { plugin, settings, audio, title, keymap } = props
   const stageRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [session, setSession] = useState<Session | null>(null)
@@ -120,7 +124,10 @@ export function PlayScreen(props: PlayScreenProps) {
         if (!controller.signal.aborted) setSession(s)
       },
       (err: unknown) => {
-        if (!controller.signal.aborted) setFailure(describeFailure(err, plugin.name))
+        if (controller.signal.aborted) return
+        const message = describeFailure(err, plugin.name)
+        setFailure(message)
+        if (import.meta.env.DEV) void import('../../../shared/harness/runtime').then((r) => r.reportOpenFailure(GAME_ID, message))
       },
     )
     return () => controller.abort()
@@ -158,18 +165,18 @@ export function PlayScreen(props: PlayScreenProps) {
     })
   }, [session])
 
-  // Keyboard.
+  // Keyboard, through the player's keymap.
   useEffect(() => {
     if (!session) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || isEditable(e.target)) return
+      if (e.defaultPrevented || isEditable(e.target)) return
       if (document.querySelector('dialog[open]')) return
-      if (e.repeat && !e.key.startsWith('Arrow')) return
       const s = session.engine.state
       if (s.status === 'over') return
-      const action = keyToAction(e.key, { inputMode: s.inputMode, input: s.input })
+      const action = keyToAction(keymap, e, { inputMode: s.inputMode, input: s.input })
       if (!action) return
       e.preventDefault()
+      if (e.repeat && !(action.type === 'command' && REPEATING_ACTIONS.has(action.command.type))) return
       if (action.type === 'togglePause') {
         if (s.status === 'paused') session.resume()
         else session.pause()
@@ -179,7 +186,7 @@ export function PlayScreen(props: PlayScreenProps) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [session])
+  }, [session, keymap])
 
   // Auto-pause when the tab is hidden.
   useEffect(() => {
@@ -255,6 +262,7 @@ export function PlayScreen(props: PlayScreenProps) {
       hud={hud}
       title={title}
       muted={muted}
+      slow={settings.speed < 1}
       engine={session?.engine ?? null}
       onPause={() => session?.pause()}
       onToggleMute={() => audio.toggleMuted()}
@@ -354,7 +362,7 @@ export function PlayScreen(props: PlayScreenProps) {
           onSettings={() => setPanel('settings')}
           onRestart={() => props.onRestart()}
           onQuit={props.onQuit}
-          keyboardHelp={!coarse}
+          keymap={coarse ? undefined : keymap}
         />
       )}
       {panel === 'settings' && (
@@ -362,8 +370,14 @@ export function PlayScreen(props: PlayScreenProps) {
           settings={settings}
           muted={muted}
           onMutedChange={(m) => audio.setMuted(m)}
-          onApply={(next) => props.onRestart(next)}
+          onApply={(next) => {
+            if (needsRestart(next, settings)) return props.onRestart(next)
+            props.onSettingsChange(next)
+            session?.setSpeed(next.speed)
+            setPanel(null)
+          }}
           onClose={() => setPanel(null)}
+          keymap={coarse ? undefined : keymap}
         />
       )}
       {result && (
@@ -379,6 +393,7 @@ export function PlayScreen(props: PlayScreenProps) {
             direction: settings.direction,
             ship: settings.ship,
             level: result.level,
+            speed: session?.slowestSpeed ?? settings.speed,
           }}
           onPlayAgain={() => props.onRestart()}
           onChangeGenerator={props.onQuit}
