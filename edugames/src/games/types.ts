@@ -22,6 +22,8 @@ export interface GameDefinition {
   description: string
   /** Formats this game can present; passed to plugin.create() as requirements. */
   formats: readonly ProblemFormat[]
+  /** Most choices one multiple-choice problem may have (requirements.maxChoices). */
+  maxChoices: number
   /** Lazy-loaded game screen (keeps each game's engine/renderer out of the launcher bundle). */
   load(): Promise<{ default: ComponentType<GameProps> }>
 }

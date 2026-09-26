@@ -162,7 +162,7 @@ const plugin: GeneratorPlugin<KinderOptions> = {
       }
       throw err
     }
-    const pool = mapPool(questions, requirements.formats)
+    const pool = mapPool(questions, requirements)
     if (pool.length === 0) {
       throw new IncompatibleGeneratorError(
         'This lesson has no problems this game can present.',

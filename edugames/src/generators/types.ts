@@ -3,7 +3,7 @@
  * generators, not m × n). Nothing here may be game-specific.
  *
  * Games never bundle or import a concrete generator. The URL carries a
- * generator id (`/space-shooter?gen=kindermath&lesson=<uuid>`); the registry
+ * generator id (`/<game>?gen=kindermath&lesson=<uuid>`); the registry
  * fetches the manifest from our API Worker (`GET <API_BASE>/v1/generators`,
  * API_BASE = https://api.games.winstondu.com in prod) and dynamically imports
  * the plugin module it names. A plugin is either:
@@ -36,6 +36,31 @@ export const PROBLEM_FORMATS: readonly ProblemFormat[] = ['freeform', 'multiple-
 /** What a game can present; passed to create() so the plugin only emits usable problems. */
 export interface ProblemRequirements {
   formats: readonly ProblemFormat[]
+  /**
+   * Most choices the game can show for one multiple-choice problem. Plugins must never exceed it:
+   * emit fewer choices (always keeping the correct one), or drop problems they can't shrink (e.g.
+   * server-checked ones whose correct choice the plugin doesn't know). Below MIN_CHOICES,
+   * multiple-choice can't be presented at all. Absent → no limit.
+   */
+  maxChoices?: number
+}
+
+/** A multiple-choice problem needs at least this many choices. */
+export const MIN_CHOICES = 2
+
+/** How many choices a plugin may emit: min(`natural`, requirements.maxChoices). */
+export function choiceLimit(requirements: ProblemRequirements, natural = Number.POSITIVE_INFINITY): number {
+  const max = requirements.maxChoices
+  return typeof max === 'number' && Number.isFinite(max) ? Math.min(natural, Math.floor(max)) : natural
+}
+
+/**
+ * The formats of `requirements` a plugin can actually use: drops 'multiple-choice' when
+ * maxChoices < MIN_CHOICES.
+ */
+export function usableFormats(requirements: ProblemRequirements): ProblemFormat[] {
+  const mcOk = choiceLimit(requirements) >= MIN_CHOICES
+  return requirements.formats.filter((f) => f !== 'multiple-choice' || mcOk)
 }
 
 /**
@@ -57,7 +82,7 @@ export interface Choice {
 export interface AnswerInputSpec {
   /** 'numeric' → digit keypad (plus '-', '.', '/' if `allow` says so); 'text' → letters/digits. */
   kind: 'numeric' | 'text'
-  /** Max characters the quiver accepts. */
+  /** Max characters the answer field accepts. */
   maxLength: number
   /** Extra characters accepted beyond the kind's default set, e.g. "-./x". */
   allow?: string
@@ -69,7 +94,7 @@ export interface Problem {
   /**
    * Question text. May contain inline math between `$…$` using a small TeX
    * subset: + - = < > ( ) ^{} _{} \times \div \cdot \frac{a}{b} \sqrt{x} \le \ge.
-   * Short prompts ("6+7") are drawn on the asteroid; long ones in a banner.
+   * Games may draw short prompts ("6+7") inline and show long ones in a banner.
    */
   prompt: string
   /** Optional ≤ 8-char short label for games with little room (falls back to "?" when prompt is long). */
@@ -194,8 +219,9 @@ export interface GeneratorPlugin<Options = unknown> {
   auth?: GeneratorAuth
   /**
    * Build a ProblemSource (hybrid plugins fetch their bank here). Only emit
-   * problems whose format is in `requirements.formats`; reject with
-   * IncompatibleGeneratorError if that leaves nothing. Other rejections must
+   * problems whose format is in `usableFormats(requirements)`, with at most
+   * `requirements.maxChoices` choices; reject with IncompatibleGeneratorError
+   * if that leaves nothing. Other rejections must
    * carry a user-presentable message.
    */
   create(options: Options, ctx: GeneratorContext, requirements: ProblemRequirements): Promise<ProblemSource>

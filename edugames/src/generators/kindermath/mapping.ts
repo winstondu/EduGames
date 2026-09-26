@@ -3,7 +3,7 @@
  * host `Problem`s, label extraction, and the level-aware picker. DOM-free and
  * side-effect-free so it can be unit-tested with a seeded rng.
  */
-import type { Problem, ProblemFormat } from '../types'
+import { choiceLimit, usableFormats, type Problem, type ProblemRequirements } from '../types'
 import { shuffle, type Rng } from '../../shared/rng'
 
 /** One question as returned by our server half (mirrors api.kindermath.org). */
@@ -65,15 +65,22 @@ export function toProblem(q: KinderQuestion): Problem | null {
 }
 
 /**
- * Map a pool of upstream questions to host Problems compatible with the game's
- * accepted `formats`. Drops malformed and incompatible entries.
+ * Map a pool of upstream questions to host Problems the game can present
+ * (`requirements`). Drops malformed and incompatible entries.
+ *
+ * MCQs with more choices than `requirements.maxChoices` are DROPPED, not
+ * truncated: answers are checked server-side, so the browser half doesn't know
+ * which choice is correct and truncating could remove it.
  */
-export function mapPool(questions: KinderQuestion[], formats: readonly ProblemFormat[]): Problem[] {
-  const allowed = new Set(formats)
+export function mapPool(questions: KinderQuestion[], requirements: ProblemRequirements): Problem[] {
+  const allowed = new Set(usableFormats(requirements))
+  const maxChoices = choiceLimit(requirements)
   const out: Problem[] = []
   for (const q of questions) {
     const p = toProblem(q)
-    if (p && allowed.has(p.format)) out.push(p)
+    if (!p || !allowed.has(p.format)) continue
+    if (p.choices && p.choices.length > maxChoices) continue
+    out.push(p)
   }
   return out
 }

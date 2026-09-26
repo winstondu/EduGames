@@ -11,6 +11,8 @@ import {
   type GeneratorPlugin,
   type Problem,
   type ProblemSource,
+  choiceLimit,
+  usableFormats,
 } from '../types'
 import { FIXTURE_SETS, FLAKY_EVERY, SETS, SLOW_CHECK_MS, formatAnswer, parseAnswer, templatesFor, type Answer, type FixtureSetName } from './sets'
 
@@ -63,7 +65,8 @@ const plugin: GeneratorPlugin<FixtureOptions> = {
   listVariants: async () => FIXTURE_SETS.map((set) => ({ label: set, params: { set }, group: 'Fixture' })),
   async create(options, ctx, requirements): Promise<ProblemSource> {
     const set = SETS[options.set] ?? SETS[DEFAULT_SET]
-    const templates = templatesFor(options.set, requirements.formats)
+    const templates = templatesFor(options.set, usableFormats(requirements))
+    const maxChoices = choiceLimit(requirements, 4)
     if (templates.length === 0) throw new IncompatibleGeneratorError(`Fixture set "${options.set}" has no problems in the supported formats.`)
     const answers = new Map<string, Stored>()
     const timers = new Set<ReturnType<typeof setTimeout>>()
@@ -73,7 +76,7 @@ const plugin: GeneratorPlugin<FixtureOptions> = {
       next(level) {
         const lvl = Math.min(MAX_LEVEL, Math.max(1, Math.floor(level) || 1))
         const template = templates[Math.floor(ctx.rng() * templates.length)]
-        const built = template(ctx.rng, lvl)
+        const built = template(ctx.rng, lvl, maxChoices)
         const id = `fixture-${++count}`
         answers.set(id, { answer: built.answer, correctChoice: built.correctChoice })
         return { ...built.problem, id, level: lvl }

@@ -81,14 +81,28 @@ describe('toProblem', () => {
 
 describe('mapPool', () => {
   test('filters to accepted formats', () => {
-    const only = mapPool([mcq, typed], ['freeform'])
+    const only = mapPool([mcq, typed], { formats: ['freeform'] })
     expect(only.map((p) => p.id)).toEqual(['q-typed'])
-    const both = mapPool([mcq, typed], ['freeform', 'multiple-choice'])
+    const both = mapPool([mcq, typed], { formats: ['freeform', 'multiple-choice'] })
     expect(both).toHaveLength(2)
   })
   test('drops malformed entries', () => {
     const bad = { id: 'b', kind: 'MCQ', prompt: 'x' } as KinderQuestion
-    expect(mapPool([bad, typed], ['freeform', 'multiple-choice'])).toHaveLength(1)
+    expect(mapPool([bad, typed], { formats: ['freeform', 'multiple-choice'] })).toHaveLength(1)
+  })
+  test('drops (never truncates) MCQs with more choices than maxChoices', () => {
+    const five: KinderQuestion = {
+      id: 'q-five',
+      kind: 'MCQ',
+      prompt: 'Pick one',
+      choices: ['a', 'b', 'c', 'd', 'e'].map((id) => ({ id, text: id.toUpperCase() })),
+    }
+    const both = { formats: ['freeform', 'multiple-choice'] as const }
+    expect(mapPool([five, mcq, typed], { ...both, maxChoices: 4 }).map((p) => p.id).sort()).toEqual(['q-mcq', 'q-typed'])
+    expect(mapPool([five, mcq, typed], { ...both, maxChoices: 5 })).toHaveLength(3)
+    expect(mapPool([five, mcq, typed], both)).toHaveLength(3)
+    // Below two choices multiple-choice can't be shown at all.
+    expect(mapPool([five, mcq, typed], { ...both, maxChoices: 1 }).map((p) => p.id)).toEqual(['q-typed'])
   })
 })
 

@@ -29,7 +29,8 @@ export interface Built {
   correctChoice?: string
 }
 
-type Template = (rng: Rng, level: number) => Built
+/** `maxChoices` (2..4, default 4) caps multiple-choice templates; the correct choice is always kept. */
+type Template = (rng: Rng, level: number, maxChoices?: number) => Built
 
 const NUMERIC: AnswerInputSpec = { kind: 'numeric', maxLength: 4, allow: '-' }
 const FRACTION: AnswerInputSpec = { kind: 'numeric', maxLength: 5, allow: '/-' }
@@ -66,11 +67,18 @@ function int(n: number): Answer {
   return { num: n, den: 1 }
 }
 
-/** Four distinct choices (ids a–d) around the correct text; math wrapped in $…$. */
-function mcChoices(rng: Rng, correct: string, distractors: string[], math: boolean): { choices: Choice[]; correctChoice: string } {
-  const unique = [...new Set(distractors.filter((d) => d !== correct))].slice(0, 3)
+/** `count` (2..4, default four) distinct choices (ids a–d) around the correct text; math wrapped in $…$. */
+function mcChoices(
+  rng: Rng,
+  correct: string,
+  distractors: string[],
+  math: boolean,
+  count = 4,
+): { choices: Choice[]; correctChoice: string } {
+  const wrong = Math.max(1, Math.min(4, Math.floor(count) || 4) - 1)
+  const unique = [...new Set(distractors.filter((d) => d !== correct))].slice(0, wrong)
   let filler = 1
-  while (unique.length < 3) {
+  while (unique.length < wrong) {
     const extra = `${Number(correct) + 10 * filler++}`
     if (extra !== correct && !unique.includes(extra)) unique.push(extra)
   }
@@ -91,18 +99,18 @@ const shortFreeform: Template = (rng, level) => {
 }
 
 /** Multiple choice with plain-number choices. */
-const multipleChoice: Template = (rng, level) => {
+const multipleChoice: Template = (rng, level, maxChoices) => {
   const a = randInt(rng, 2, 3 + level * 2)
   const b = randInt(rng, 2, 9)
   const answer = a * b
-  const { choices, correctChoice } = mcChoices(rng, String(answer), [String(answer + b), String(answer - b), String(answer + 1)], false)
+  const { choices, correctChoice } = mcChoices(rng, String(answer), [String(answer + b), String(answer - b), String(answer + 1)], false, maxChoices)
   return { problem: { prompt: `${a} × ${b}`, format: 'multiple-choice', choices }, answer: int(answer), correctChoice }
 }
 
 /** Multiple choice whose prompt and choices are TeX ($\sqrt{…}$). */
-const mathChoice: Template = (rng) => {
+const mathChoice: Template = (rng, _level, maxChoices) => {
   const r = randInt(rng, 2, 12)
-  const { choices, correctChoice } = mcChoices(rng, String(r), [String(r + 1), String(r - 1), String(r * 2)], true)
+  const { choices, correctChoice } = mcChoices(rng, String(r), [String(r + 1), String(r - 1), String(r * 2)], true, maxChoices)
   return { problem: { prompt: `$\\sqrt{${r * r}}$`, label: '√', format: 'multiple-choice', choices }, answer: int(r), correctChoice }
 }
 
@@ -122,12 +130,12 @@ const longWordProblem: Template = (rng, level) => {
 }
 
 /** Long multiple-choice prompt with $…$ math in both the prompt and the choices. */
-const longChoice: Template = (rng) => {
+const longChoice: Template = (rng, _level, maxChoices) => {
   const a = randInt(rng, 2, 9)
   const b = randInt(rng, 2, 5)
   const answer = a * b + b
   const prompt = `A rocket burns $${a}$ units of fuel per minute for $${b}$ minutes, plus $${b}$ units to land. Which expression equals the total, $${a} \\times ${b} + ${b}$?`
-  const { choices, correctChoice } = mcChoices(rng, String(answer), [String(a * b), String(answer + a), String(a + b + b)], true)
+  const { choices, correctChoice } = mcChoices(rng, String(answer), [String(a * b), String(answer + a), String(a + b + b)], true, maxChoices)
   return { problem: { prompt, label: '?', format: 'multiple-choice', choices }, answer: int(answer), correctChoice }
 }
 

@@ -35,6 +35,8 @@ export const WORLD = {
   shipHalfLength: 64,
 } as const
 
+/** Most choices the choice strip shows for one multiple-choice problem (keys 1–4). */
+export const MAX_CHOICES = 4
 export const MIN_LANES = 3
 export const MAX_LANES = 5
 export const MAX_LIVES = 5

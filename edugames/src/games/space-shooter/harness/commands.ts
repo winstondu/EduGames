@@ -6,7 +6,7 @@
  */
 import type { CommandSpec } from '../../../shared/harness/types'
 import { acceptsChar } from '../engine/input'
-import type { Command, GameState } from '../engine/types'
+import { MAX_CHOICES, type Command, type GameState } from '../engine/types'
 
 export const COMMANDS: CommandSpec[] = [
   { name: 'up', usage: 'up', description: 'Move the ship one lane up.' },
@@ -44,7 +44,8 @@ const ALIASES: Record<string, string> = {
   w: 'wait', wait: 'wait', noop: 'wait', none: 'wait', idle: 'wait', '': 'wait',
 }
 
-const MAX_CHOICE = 4
+/** Highest `choose <n>` (the engine's choice-strip size). */
+const MAX_CHOICE = MAX_CHOICES
 
 function typeText(text: string): PlayerCommand[] {
   return [...text].map((char) => ({ type: 'typeChar', char }))

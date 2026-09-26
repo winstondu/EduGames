@@ -12,7 +12,8 @@
  *   options.garbage  parseOptions never throws on junk params
  *   options.roundtrip parse(serialize(o)) ≡ o, serialize is stable
  *   board.*          boardKey pattern, `${id}` prefix, stable per options
- *   requirements.*   formats honored; no overlap ⇒ IncompatibleGeneratorError (by name)
+ *   requirements.*   formats honored; no overlap ⇒ IncompatibleGeneratorError (by name);
+ *                    maxChoices honored (also under a tight 2-choice limit)
  *   problem.*        shape, levels within 1..maxLevel, choices, input spec, label, prompt math
  *   problem.id       one id ⇒ one problem (recycled problems keep their id)
  *   determinism      same seed ⇒ same problems and verdicts
@@ -23,6 +24,7 @@ import { BOARD_KEY_PATTERN } from '../shared/highscores/types'
 import { mathTextToPlain, unknownMathCommands } from '../shared/mathtext/parse'
 import { createRng } from '../shared/rng'
 import {
+  MIN_CHOICES,
   PROBLEM_FORMATS,
   type AnswerInputSpec,
   type CheckResult,
@@ -30,6 +32,7 @@ import {
   type GeneratorPlugin,
   type Problem,
   type ProblemFormat,
+  type ProblemRequirements,
   type ProblemSource,
 } from './types'
 
@@ -54,7 +57,12 @@ export interface ConformanceOptions {
   checks?: number
   /** Budget per async call (default 5000 ms). */
   timeoutMs?: number
+  /** `requirements.maxChoices` passed to create() — the host game's limit (default DEFAULT_MAX_CHOICES). */
+  maxChoices?: number
 }
+
+/** Choice limit used when a caller doesn't name one (the most any current game shows). */
+export const DEFAULT_MAX_CHOICES = 4
 
 export interface ConformanceIssue {
   rule: string
@@ -73,7 +81,6 @@ export interface ConformanceReport {
 const FORMAT_SETS: readonly (readonly ProblemFormat[])[] = [['freeform'], ['multiple-choice'], ['freeform', 'multiple-choice']]
 const ID = /^[a-z0-9-]{1,32}$/
 const LABEL_MAX = 8
-const MAX_CHOICES = 4
 const GARBAGE: readonly string[] = ['', 'format=%%%', 'level=-1&ops=\u0000', 'lesson=../../etc&set=__proto__', 'a=1&a=2&b', `x=${'9'.repeat(400)}`]
 
 function offline(): Promise<Response> {
@@ -125,6 +132,8 @@ export async function checkConformance(plugin: GeneratorPlugin<unknown>, options
   const checkCount = options.checks ?? 12
   const timeoutMs = options.timeoutMs ?? 5000
   const api = options.api ?? offline
+  const maxChoices = options.maxChoices ?? DEFAULT_MAX_CHOICES
+  const requirementsFor = (formats: readonly ProblemFormat[], limit = maxChoices): ProblemRequirements => ({ formats, maxChoices: limit })
 
   /** Evaluate one rule: anything but `true` records an issue (a string is the reason). */
   function rule(name: string, ok: boolean | string, message: string, label?: string): boolean {
@@ -201,7 +210,7 @@ export async function checkConformance(plugin: GeneratorPlugin<unknown>, options
       const { ctx, abort } = context(seeds[0])
       let source: ProblemSource | null = null
       try {
-        source = await withTimeout(plugin.create(parsed, ctx, { formats }), timeoutMs, 'create()')
+        source = await withTimeout(plugin.create(parsed, ctx, requirementsFor(formats)), timeoutMs, 'create()')
       } catch (err) {
         const incompatible = err instanceof Error && err.name === 'IncompatibleGeneratorError'
         if (!overlap) rule('requirements.reject', incompatible || errorText(err), 'no format overlap must reject with IncompatibleGeneratorError', tag)
@@ -221,7 +230,7 @@ export async function checkConformance(plugin: GeneratorPlugin<unknown>, options
         }
         const wrongFormat = problems.find((p) => !formats.includes(p.format))
         rule('requirements.formats', !wrongFormat, `emitted a ${wrongFormat?.format} problem`, tag)
-        checkProblems(problems, tag)
+        checkProblems(problems, tag, maxChoices)
         checkLevels(source, tag)
         if (formats.length === PROBLEM_FORMATS.length && !c.unreliableChecks) await checkVerdicts(source, problems, tag)
       } finally {
@@ -230,12 +239,38 @@ export async function checkConformance(plugin: GeneratorPlugin<unknown>, options
       }
     }
 
+    // ── Tight choice limit: fewer choices (correct one kept) or drop / reject ──
+    if (plugin.formats.includes('multiple-choice')) {
+      const tag = `${label} [maxChoices=${MIN_CHOICES}]`
+      const { ctx, abort } = context(seeds[0])
+      let source: ProblemSource | null = null
+      try {
+        source = await withTimeout(plugin.create(parsed, ctx, requirementsFor(plugin.formats, MIN_CHOICES)), timeoutMs, 'create()')
+      } catch (err) {
+        const incompatible = err instanceof Error && err.name === 'IncompatibleGeneratorError'
+        rule('requirements.maxChoices', incompatible || errorText(err), 'create() rejected under a 2-choice limit', tag)
+      }
+      if (source) {
+        try {
+          const problems = drawProblems(source, plugin.maxLevel, draws)
+          if (typeof problems === 'string') rule('problem.next', problems, 'next() threw', tag)
+          else {
+            checkProblems(problems, tag, MIN_CHOICES)
+            if (!c.unreliableChecks) await checkVerdicts(source, problems, tag)
+          }
+        } finally {
+          source.dispose?.()
+        }
+      }
+      abort.abort()
+    }
+
     // ── Determinism ─────────────────────────────────────────────────────
     const runs: string[] = []
     for (let i = 0; i < 2; i++) {
       const { ctx, abort } = context(seeds[0])
       try {
-        const source = await withTimeout(plugin.create(parsed, ctx, { formats: plugin.formats }), timeoutMs, 'create()')
+        const source = await withTimeout(plugin.create(parsed, ctx, requirementsFor(plugin.formats)), timeoutMs, 'create()')
         const problems = drawProblems(source, plugin.maxLevel, draws)
         const verdicts: unknown[] = []
         if (typeof problems !== 'string' && !c.unreliableChecks && plugin.kind === 'client') {
@@ -253,7 +288,7 @@ export async function checkConformance(plugin: GeneratorPlugin<unknown>, options
     if (seeds.length > 1 && plugin.kind === 'client') {
       const { ctx, abort } = context(seeds[1])
       try {
-        const source = await withTimeout(plugin.create(parsed, ctx, { formats: plugin.formats }), timeoutMs, 'create()')
+        const source = await withTimeout(plugin.create(parsed, ctx, requirementsFor(plugin.formats)), timeoutMs, 'create()')
         const other = drawProblems(source, plugin.maxLevel, draws)
         const first = runs[0].startsWith('error') ? null : (JSON.parse(runs[0]) as { problems: unknown }).problems
         // Informational for tiny banks, but a seeded generator should vary with the seed.
@@ -277,7 +312,7 @@ export async function checkConformance(plugin: GeneratorPlugin<unknown>, options
     return out
   }
 
-  function checkProblems(problems: readonly Problem[], tag: string): void {
+  function checkProblems(problems: readonly Problem[], tag: string, limit: number): void {
     const byId = new Map<string, string>()
     for (const p of problems) {
       const where = `problem ${JSON.stringify(p.id)} ("${String(p.prompt).slice(0, 40)}")`
@@ -294,7 +329,7 @@ export async function checkConformance(plugin: GeneratorPlugin<unknown>, options
       if (p.format === 'multiple-choice') {
         const choices = p.choices ?? []
         const ids = choices.map((c) => c.id)
-        rule('problem.choices', choices.length >= 2 && choices.length <= MAX_CHOICES, `${where}: ${choices.length} choices (want 2..${MAX_CHOICES})`, tag)
+        rule('problem.choices', choices.length >= MIN_CHOICES && choices.length <= limit, `${where}: ${choices.length} choices (requirements allow ${MIN_CHOICES}..${limit})`, tag)
         rule('problem.choices', new Set(ids).size === ids.length && ids.every((id) => typeof id === 'string' && id.length > 0), `${where}: choice ids must be unique and non-empty`, tag)
         rule('problem.choices', choices.every((c) => typeof c.text === 'string' && c.text.trim().length > 0), `${where}: empty choice text`, tag)
         const texts = choices.map((c) => mathTextToPlain(c.text).replace(/\s+/g, ''))

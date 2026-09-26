@@ -113,6 +113,49 @@ describe('generator conformance', () => {
     }
   })
 
+  test('math and fixture honor a smaller host choice limit', async () => {
+    for (const maxChoices of [2, 3]) {
+      const m = await checkConformance(math as GeneratorPlugin<unknown>, { cases: [{ params: { ops: 'add,sub,mul,div', format: 'mc' } }], maxChoices })
+      expect(show(m.issues)).toEqual([])
+      const f = await checkConformance(fixture as GeneratorPlugin<unknown>, { cases: [{ params: { set: 'mc' } }], maxChoices })
+      expect(show(f.issues)).toEqual([])
+    }
+  })
+
+  test('a plugin that ignores requirements.maxChoices is flagged', async () => {
+    let n = 0
+    const greedy: GeneratorPlugin<Record<string, never>> = {
+      id: 'greedy',
+      name: 'Greedy',
+      description: '',
+      kind: 'client',
+      maxLevel: 1,
+      defaultInput: { kind: 'numeric', maxLength: 3 },
+      formats: ['multiple-choice'],
+      formatSelectable: false,
+      parseOptions: () => ({}),
+      serializeOptions: () => ({}),
+      boardKey: () => 'greedy',
+      describe: async () => 'Greedy',
+      async create(): Promise<ProblemSource> {
+        return {
+          next: () => ({
+            id: `g${n++}`,
+            prompt: `${n} + 1`,
+            level: 1,
+            format: 'multiple-choice',
+            choices: [0, 1, 2, 3].map((k) => ({ id: `c${k}`, text: String(n + k) })),
+          }),
+          check: (_p, given) => ({ correct: given === 'c1' }),
+        }
+      },
+    }
+    const issues = (await checkConformance(greedy as GeneratorPlugin<unknown>, { cases: [{ params: {} }] })).issues
+    expect(issues.some((i) => i.rule === 'problem.choices' && i.case?.includes('maxChoices=2'))).toBe(true)
+    // Within the default limit (4) it conforms.
+    expect(issues.filter((i) => !i.case?.includes('maxChoices=2')).map((i) => i.rule)).not.toContain('problem.choices')
+  })
+
   test('IncompatibleGeneratorError is recognised by name, not instanceof', () => {
     const err = new IncompatibleGeneratorError('x')
     expect(err.name).toBe('IncompatibleGeneratorError')
