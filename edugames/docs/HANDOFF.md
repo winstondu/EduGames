@@ -1,4 +1,4 @@
-# Handoff — EduGames space shooter (branch `feat/space-math`)
+# Handoff — EduGames space shooter (branch `feat/space-math-4901b6`)
 
 Status as of 2026-09-26. Read `src/games/space-shooter/README.md` first (architecture,
 module boundaries, dev ports).
@@ -39,6 +39,29 @@ part 2 below. Not yet covered: RTL, lanes 3/5, ships, powerups, pause/settings d
 layout, kindermath lessons (needs the password). DOM-only bots are too slow for real-time
 play — finish `window.__edugames` first, then play-test through it.
 Review/fix pass not run.
+
+## Session 3 (2026-09-26) — done
+
+- Harness part 2 (window.__edugames, meta panel, single broker, speed + 🐢, key presets,
+  deriveSeeds, `bun run check:dist`), drag-to-steer, phone dial pad for numeric answers.
+- Layer 1: `src/generators/conformance.ts` (+ test for math, fixture, kindermath-with-fake-API).
+- Layer 2: `harness/tools.ts` + `bun run harness:mcp` (stdio MCP, `.mcp.json`).
+- Play-tested with 5 Sonnet agents (RTL/lanes/ships, powerups/pause/settings/keys, formats +
+  fixtures, phone/tablet + error paths, kindermath live — 9 answers posted to the demo account).
+  Fixed: unrecorded flag lost on launcher navigation, stacked powerup callouts, overlapping
+  asteroids in a lane (new invariant), keypad CSS collision, raw HTTP errors, harness describe().
+- Review pass (`/code-review high` over d7491b7..HEAD): 10 findings, all fixed (incl. DEV
+  sync verdicts being dropped inside a harness tick).
+
+Open / next:
+- kindermath upstream content (report to kindermath): "Variables & terms" serves the same
+  questions as "Combining like terms"; "Solve 4x+4=4x+4" is an identity with 4 numeric choices
+  and a contradictory explanation; "5x + -8" formatting; practice pool is a fixed 5.
+- kindermath TYPED questions always get the text keypad; proposal: upstream `answer:
+  'number' | 'expression'` → map `number` to `{ kind: 'numeric', allow: '-./' }` (user to decide).
+- Typed answers can't contain "=" (allow is `-./x^`); no feedback when a key is rejected.
+- Not yet verified in play: shield and doubleShots powerups; pending chip on screen (slow set).
+- Real-time play under heavy CPU load (several headless browsers) looks frozen — load, not a bug.
 
 ## Verification layers (the plan)
 
@@ -101,6 +124,10 @@ Review/fix pass not run.
 
 ## Environment notes
 
+- Cloud sessions: `wrangler dev` (workerd) ignores `HTTPS_PROXY`, so the local API can't reach
+  api.kindermath.org directly. Workaround (sandbox only, never commit): a Bun relay on
+  127.0.0.1:8799 → https://api.kindermath.org, and `KINDERMATH_API_BASE=http://127.0.0.1:8799/v1`
+  in `api/.dev.vars` (git-ignored); the network policy must allow api.kindermath.org.
 - Cloud sessions: use the **WinstonKinderMath** environment; it should carry
   `KINDERMATH_DEMO_PASSWORD` as an env var. At start: `cp api/.dev.vars.example api/.dev.vars`
   and fill the password line from `$KINDERMATH_DEMO_PASSWORD` (never print it). Playwright:
