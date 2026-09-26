@@ -101,21 +101,25 @@ export function describe(): string {
   return `SPACE SHOOTER (EduGames) — harness session (unrecorded: scores are never submitted).
 
 RULES
-- Your ship sits at the left edge and can be in one of \`lanes\` horizontal lanes (0 = top).
+- Your ship sits at its edge (left, or right when the player flies right → left; the state is the same either way:
+  x is the distance from the ship's edge) and can be in one of \`lanes\` horizontal lanes (0 = top).
 - Asteroids fly toward you, each carrying a problem (\`prompt\`, may contain $…$ TeX math).
 - The TARGET is the nearest non-pending asteroid in the ship's lane. Answer it:
     multiple-choice (inputMode "multiple-choice"): "choose <n>" fires choice n;
     freeform (inputMode "freeform"): "type <text>" then "fire" (or "answer <text>").
 - A shot flies down the ship's lane and hits the first asteroid there. The asteroid freezes
   (pending) while the answer is checked. Correct → destroyed, points (10×level + streak bonus).
-  Wrong → it keeps coming and your streak resets. A check that fails or takes over
-  ${CHECK_TIMEOUT_SECONDS} s is voided without penalty.
+  Wrong → it keeps coming and your streak resets. Some generators check answers on a server, so
+  a check can take real time: act() waits for it. A check that fails or takes over
+  ${CHECK_TIMEOUT_SECONDS} s is voided without penalty (event checkVoided; the player sees "…lost signal"): the
+  asteroid stays and can be answered again, and neither correct nor wrong changes.
 - An asteroid reaching the ship (x ≤ 0 in your lane) or getting past it (other lanes) costs a life; a shield absorbs up to
   ${SHIELD_HITS} hits. 0 lives → game over. Max lives ${MAX_LIVES}.
 - Powerups drift toward you too; be in their lane when they arrive to collect them: extraLife, scoreBoost (×2 points),
   doubleShots (a hit also destroys the next asteroid in that lane), shield, speedBoost, random.
 - Moving lanes takes a moment (~0.15 s per lane); the target follows the ship.
-- Level rises every 8 correct answers; asteroids get faster and denser.
+- Level rises every 8 correct answers; asteroids get faster and denser (generators may also get harder,
+  e.g. math brings in −, ×, ÷ at later levels).
 
 COMMANDS (one per call; case-insensitive; "c2", "l0", "t 12" also work)
 ${commands}

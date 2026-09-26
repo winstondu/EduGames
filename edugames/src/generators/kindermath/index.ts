@@ -18,6 +18,7 @@ import {
   type ProblemSource,
 } from '../types'
 import {
+  KinderApiError,
   getCourse,
   getCourses,
   getLesson,
@@ -146,7 +147,21 @@ const plugin: GeneratorPlugin<KinderOptions> = {
   },
 
   async create(options, ctx, requirements: ProblemRequirements): Promise<ProblemSource> {
-    const questions = await getQuestions(ctx, options.lesson)
+    let questions: Awaited<ReturnType<typeof getQuestions>>
+    try {
+      questions = await getQuestions(ctx, options.lesson)
+    } catch (err) {
+      // Rejections must be player-presentable (contract); keep the technical cause for logs.
+      if (err instanceof KinderApiError) {
+        throw new Error(
+          err.status === 404 || err.status === 400
+            ? "We couldn't find that KinderMath lesson."
+            : "We couldn't reach KinderMath right now. Please try again in a moment.",
+          { cause: err },
+        )
+      }
+      throw err
+    }
     const pool = mapPool(questions, requirements.formats)
     if (pool.length === 0) {
       throw new IncompatibleGeneratorError(

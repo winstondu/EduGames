@@ -75,8 +75,9 @@ function describeFailure(err: unknown, pluginName: string): string {
     return `This ${pluginName} set can't be played in Space Shooter. ${e.message}`.trim()
   }
   if (e?.name === 'AbortError') return 'Loading was interrupted. Try again.'
-  // Plugins should reject with player-facing text, but add context in case it's technical.
-  return `We couldn't load the problems.${e?.message ? ` (${e.message})` : ''}`
+  // Plugins reject with player-facing text (contract); the technical cause goes to the console.
+  if (e?.cause) console.warn('[space-shooter] generator failed to load:', e.cause)
+  return e?.message?.trim() || "We couldn't load the problems."
 }
 
 function isEditable(target: EventTarget | null): boolean {

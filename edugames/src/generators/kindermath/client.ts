@@ -37,9 +37,27 @@ export interface LessonDetail {
   unit?: { title?: string }
 }
 
+/** A non-2xx answer from the server half (`status` 0 = network failure). */
+export class KinderApiError extends Error {
+  override name = 'KinderApiError'
+  readonly path: string
+  readonly status: number
+  constructor(path: string, status: number) {
+    super(`kindermath ${path}: ${status ? `HTTP ${status}` : 'network error'}`)
+    this.path = path
+    this.status = status
+  }
+}
+
 async function json<T>(ctx: GeneratorContext, path: string, init?: RequestInit): Promise<T> {
-  const res = await ctx.api(path, init)
-  if (!res.ok) throw new Error(`kindermath ${path}: HTTP ${res.status}`)
+  let res: Response
+  try {
+    res = await ctx.api(path, init)
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') throw err
+    throw new KinderApiError(path, 0)
+  }
+  if (!res.ok) throw new KinderApiError(path, res.status)
   return (await res.json()) as T
 }
 
