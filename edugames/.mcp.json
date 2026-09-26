@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "edugames-harness": {
+      "command": "bun",
+      "args": ["scripts/harness-mcp.ts"]
+    }
+  }
+}

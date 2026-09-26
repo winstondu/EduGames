@@ -14,10 +14,7 @@
  * JSON {"command": "...", "advance": 1}. Generators load straight from
  * src/generators/<id>/index.ts and run offline (hybrid ones can't).
  */
-import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import type { GeneratorPlugin } from '../src/generators/types'
 import type { Replay } from '../src/shared/harness/types'
 import { DEFAULT_ADVANCE_SECONDS } from '../src/games/space-shooter/harness/adapter'
@@ -25,9 +22,7 @@ import { BOT_NAMES, type BotName } from '../src/games/space-shooter/harness/bots
 import { runReplay } from '../src/games/space-shooter/harness/replay'
 import { openHeadless, runBotGame, type BotGameResult } from '../src/games/space-shooter/harness/runner'
 import { describe } from '../src/games/space-shooter/harness/snapshot'
-
-const ROOT = resolve(import.meta.dir, '..')
-const ID_RE = /^[a-z0-9-]+$/
+import { loadPlugin } from './lib/plugins'
 
 interface Flags {
   gen: string
@@ -81,15 +76,6 @@ function parseFlags(argv: string[]): Flags {
     }
   }
   return flags
-}
-
-/** Import src/generators/<id>/index.ts directly (dev tooling only). */
-async function loadPlugin(id: string): Promise<GeneratorPlugin<unknown> | null> {
-  if (!ID_RE.test(id)) return null
-  const entry = join(ROOT, 'src/generators', id, 'index.ts')
-  if (!existsSync(entry)) return null
-  const mod = (await import(pathToFileURL(entry).href)) as { default?: GeneratorPlugin<unknown> }
-  return mod.default ?? null
 }
 
 async function requirePlugin(id: string): Promise<GeneratorPlugin<unknown>> {

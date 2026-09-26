@@ -16,7 +16,8 @@
     "test": "bun test src",
     "typecheck": "tsc -b",
     "generators:build": "bun scripts/build-generators.ts",
-    "sim": "bun scripts/sim.ts"
+    "sim": "bun scripts/sim.ts",
+    "harness:mcp": "bun scripts/harness-mcp.ts"
   },
   "dependencies": {
     "@fontsource/comic-neue": "^5.3.0",

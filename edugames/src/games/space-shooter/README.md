@@ -81,3 +81,11 @@ concrete generators. Generators import only `generators/types`, `shared/rng`,
   console, event log, state, replay export, and an "open…" form that lists the hidden
   `fixture` generator.
 - Browser replays run headless: `bun run sim -- --replay run.json` (seeds via `deriveSeeds`).
+
+## LLM harness tools (MCP)
+
+`bun run harness:mcp` serves the headless harness as a stdio MCP server (`.mcp.json` registers
+it as `edugames-harness` for Claude Code): `list_generators`, `open_session`, `act`, `send`,
+`state`, `events`, `step`, `export_replay`, `run_replay`, `run_bots`, `conformance`. Offline
+(client generators only) and unrecorded. The tool set lives in `harness/tools.ts`
+(transport-agnostic). The generator conformance suite is `src/generators/conformance.ts`.
