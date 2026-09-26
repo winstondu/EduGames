@@ -1,0 +1,9 @@
+# Copy to api/.dev.vars for `bun run dev:api` (wrangler dev). Never commit .dev.vars.
+# Vite dev server: the generator manifest points plugin entries at /src/generators/<id>/index.ts there.
+GENERATORS_DEV_ORIGIN=http://localhost:5173
+# Browser origins allowed by CORS (comma-separated).
+ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+# STUB auth: demo identity sent upstream as x-dev-user-email until real per-user login lands.
+KINDERMATH_DEV_USER_EMAIL=teacher@demo-academy.test
+# Optional: salt for hashing client IPs (abuse guard). Set with `wrangler secret put` in production.
+# IP_HASH_SALT=change-me
