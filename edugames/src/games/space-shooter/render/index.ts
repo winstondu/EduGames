@@ -10,12 +10,13 @@
 import '@fontsource/comic-neue/700.css'
 import * as ex from 'excalibur'
 import { clearMathTextCache } from '../../../shared/mathtext/canvas'
+import { createTimeController, type TimeController } from '../../../shared/kit/time'
 import { POWERUP_ICONS } from '../assets/powerups'
 import { SHIP_SKINS, type ShipSkinId } from '../assets/ships'
 import { PALETTE } from '../assets/spec'
-import { POWERUP_KINDS, WORLD, type Direction, type Engine, type GameEvent, type PowerupKind } from '../engine/types'
+import { POWERUP_KINDS, STEP_SECONDS, WORLD, type Direction, type Engine, type GameEvent, type PowerupKind } from '../engine/types'
 import { clientToWorld, worldToClient } from './layout'
-import { GameScene } from './scene'
+import { GameScene, MAX_FRAME_SECONDS } from './scene'
 import { FONT_PROBE } from './theme'
 
 export interface GameViewOptions {
@@ -23,6 +24,10 @@ export interface GameViewOptions {
   engine: Engine // from engine/types
   direction: Direction
   ship: ShipSkinId
+  /** Initial real-time multiplier (player speed setting, default 1). */
+  speed?: number
+  /** Runs one fixed step (default engine.step(); the DEV harness passes harness.tick). */
+  step?(): GameEvent[]
   /** Called after every fixed step with that step's events (the view already used them for FX). */
   onStep(events: GameEvent[]): void
 }
@@ -34,6 +39,8 @@ export interface GameView {
   pushEvents(events: GameEvent[]): void
   /** Stop/resume stepping + animation (engine pause is a separate command). */
   setPaused(paused: boolean): void
+  /** Step pacing: speed scale, lockstep and queued manual steps (the engine stays deterministic). */
+  readonly time: TimeController
   /** Map client (CSS px) ↔ world coords; world x is measured from the leading edge. */
   clientToWorld(clientX: number, clientY: number): { x: number; y: number }
   worldToClient(x: number, y: number): { x: number; y: number }
@@ -111,8 +118,11 @@ export function createGameView(options: GameViewOptions): GameView {
   let disposed = false
   let settleOnDispose = () => {}
   const disposal = new Promise<void>((resolve) => (settleOnDispose = resolve))
+  const time = createTimeController({ stepSeconds: STEP_SECONDS, maxFrameSeconds: MAX_FRAME_SECONDS, scale: options.speed })
   const scene = new GameScene({
     sim: options.engine,
+    time,
+    step: options.step,
     direction,
     quality,
     shipImage,
@@ -150,6 +160,7 @@ export function createGameView(options: GameViewOptions): GameView {
     setPaused(paused) {
       if (!disposed) scene.setPaused(paused)
     },
+    time,
     clientToWorld: (clientX, clientY) => clientToWorld(rect(), direction, clientX, clientY),
     worldToClient: (x, y) => worldToClient(rect(), direction, x, y),
     dispose() {

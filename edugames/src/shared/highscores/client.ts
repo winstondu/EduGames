@@ -4,6 +4,7 @@
  * (aborts via `signal` reject with the usual AbortError instead).
  */
 import { API_BASE } from '../apiBase'
+import { isUnrecorded } from '../unrecorded'
 import type {
   ApiError,
   LeaderboardResponse,
@@ -20,6 +21,8 @@ export type HighScoreErrorKind =
   | 'rate-limited'
   /** 5xx or an unreadable response. */
   | 'server'
+  /** The hidden unrecorded flag is on (harness / automated play); nothing was sent. */
+  | 'unrecorded'
 
 export class HighScoreError extends Error {
   override name = 'HighScoreError'
@@ -52,6 +55,8 @@ export function fetchLeaderboard(
 
 /** Submit a finished run; resolves with the saved entry and its 1-based rank. */
 export function submitScore(submission: ScoreSubmission, options: RequestOptions = {}): Promise<SubmitScoreResponse> {
+  // Last line of defense: games hide the prompt too, but never let an unrecorded run reach a board.
+  if (isUnrecorded()) return Promise.reject(new HighScoreError('unrecorded', "This run isn't recorded."))
   return request<SubmitScoreResponse>('/v1/scores', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

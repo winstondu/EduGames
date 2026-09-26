@@ -1,10 +1,10 @@
 /**
- * The play scene. Owns the fixed-step loop (the engine is the only source of
- * truth) and mirrors engine.state into pooled actors each frame; no gameplay
+ * The play scene. Owns the fixed-step loop, paced by a TimeController (player
+ * speed, DEV harness scale / lockstep); the engine is the only source of truth, and mirrors engine.state into pooled actors each frame; no gameplay
  * logic lives here. Positions are interpolated between the last two steps.
  */
 import * as ex from 'excalibur'
-import { createFixedStepper } from '../../../shared/kit/fixedStepper'
+import type { TimeController } from '../../../shared/kit/time'
 import { POWERUP_SPRITE, SHIP_SPRITE } from '../assets/spec'
 import {
   STEP_SECONDS,
@@ -35,16 +35,19 @@ export interface GameSceneOptions {
   quality: number
   shipImage: ex.ImageSource
   powerupImages: Record<PowerupKind, ex.ImageSource>
+  /** Paces the fixed steps (scale, lockstep, queued manual steps). */
+  time: TimeController
+  /** Runs one fixed step (default: sim.step(); the DEV harness routes it through harness.tick()). */
+  step?(): GameEvent[]
   onStep(events: GameEvent[]): void
 }
 
 /** Max seconds of animation per frame (tab switches, debugger pauses). */
-const MAX_FRAME_SECONDS = 0.25
+export const MAX_FRAME_SECONDS = 0.25
 
 export class GameScene extends ex.Scene {
   private readonly o: GameSceneOptions
   private readonly lanes: number
-  private readonly stepper = createFixedStepper(STEP_SECONDS, MAX_FRAME_SECONDS)
   private time = 0
   private frameDt = 0
   private alpha = 0
@@ -125,24 +128,30 @@ export class GameScene extends ex.Scene {
 
   override onPreUpdate(_engine: ex.Engine, elapsedMs: number): void {
     if (this.paused || this.stopped) return
-    const dt = Math.min(Math.max(0, elapsedMs / 1000), MAX_FRAME_SECONDS)
+    const clock = this.o.time
+    const realDt = Math.min(Math.max(0, elapsedMs / 1000), MAX_FRAME_SECONDS)
+    const steps = clock.advance(realDt)
+    // Animation follows game time: scaled in slow motion, step-by-step in lockstep.
+    const dt = clock.lockstep ? steps * STEP_SECONDS : realDt * clock.scale
     this.time += dt
     this.frameDt = dt
-    const steps = this.stepper.advance(dt)
-    for (let i = 0; i < steps && !this.stopped && !this.paused; i++) {
-      this.capture()
-      const events = this.o.sim.step()
-      if (events.length) this.fx.handle(events, this.lookup)
-      try {
-        this.o.onStep(events)
-      } catch (err) {
-        console.error('[space-shooter view] onStep threw', err)
-      }
-    }
+    for (let i = 0; i < steps && !this.stopped && !this.paused; i++) this.runStep()
     if (this.stopped) return
-    this.alpha = this.stepper.alpha()
+    // Lockstep sits exactly on a step (and steps may run outside this loop), so show the current state.
+    this.alpha = clock.lockstep ? 1 : clock.alpha()
     this.fx.advance(dt)
     this.syncActors()
+  }
+
+  private runStep(): void {
+    this.capture()
+    const events = this.o.step ? this.o.step() : this.o.sim.step()
+    if (events.length) this.fx.handle(events, this.lookup)
+    try {
+      this.o.onStep(events)
+    } catch (err) {
+      console.error('[space-shooter view] onStep threw', err)
+    }
   }
 
   /** FX for events that came from engine.dispatch() rather than step(). */
@@ -153,7 +162,7 @@ export class GameScene extends ex.Scene {
   setPaused(paused: boolean): void {
     if (paused === this.paused) return
     this.paused = paused
-    this.stepper.reset()
+    this.o.time.reset()
   }
 
   /** Stop stepping for good (the view is being disposed). */

@@ -8,6 +8,7 @@ import {
   type LeaderboardResponse,
   type ScoreSubmission,
 } from '../../../shared/highscores/types'
+import { isUnrecorded } from '../../../shared/unrecorded'
 import { UI_ICONS } from '../assets/ui'
 import { accuracyPercent } from './controls'
 import { loadNickname, saveNickname } from './hooks'
@@ -53,6 +54,8 @@ export function GameOver({ result, gameId, generatorId, boardKey, boardTitle, me
   const [submit, setSubmit] = useState<Submit>({ state: 'idle' })
   const [board, setBoard] = useState<Board>({ state: 'loading' })
   const nameId = useId()
+  // Hidden flag for harness / automated play: show the board, never the name prompt.
+  const [unrecorded] = useState(() => isUnrecorded())
   const canSubmit = BOARD_KEY_PATTERN.test(boardKey)
   const accuracy = accuracyPercent(result.correct, result.wrong)
 
@@ -133,7 +136,9 @@ export function GameOver({ result, gameId, generatorId, boardKey, boardTitle, me
         {canSubmit && (
           <div className="ss-over-grid">
             <div className="ss-submit">
-              {submit.state === 'done' ? (
+              {unrecorded ? (
+                <p className="ss-note">This run isn't recorded.</p>
+              ) : submit.state === 'done' ? (
                 <div className="ss-rank" role="status">
                   <img src={UI_ICONS.trophy} alt="" width={56} height={56} />
                   <div>
