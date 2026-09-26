@@ -9,6 +9,7 @@ import {
   mirrorX,
   placeBubble,
   quiverContent,
+  TOUCH_CHOICE_HINT,
   worldToClient,
   wrongShake,
   type FitText,
@@ -92,6 +93,18 @@ describe('placeBubble', () => {
     expect(top.above).toBe(false)
     expect(top.y - 35 - 18).toBeGreaterThanOrEqual(laneCenterY(0, 5) + SHIP_SPRITE.height / 2)
   })
+
+  test('a lower ceiling (tall HUD row / banner) sends the bubble below the ship', () => {
+    const shipY = laneCenterY(0, 3)
+    expect(placeBubble(shipY, 70, 18).above).toBe(true)
+    const below = placeBubble(shipY, 70, 18, 180)
+    expect(below.above).toBe(false)
+    expect(below.y - 35 - 18).toBeGreaterThanOrEqual(shipY + SHIP_SPRITE.height / 2)
+  })
+
+  test('a ceiling above the HUD band never lets the bubble climb into it', () => {
+    expect(placeBubble(laneCenterY(0, 5), 70, 18, 0)).toEqual(placeBubble(laneCenterY(0, 5), 70, 18))
+  })
 })
 
 describe('quiverContent', () => {
@@ -111,6 +124,14 @@ describe('quiverContent', () => {
   test('multiple choice shows a pick hint sized to the choices', () => {
     const choices = [1, 2, 3].map((i) => ({ id: `c${i}`, text: String(i) }))
     expect(quiverContent({ ...base, inputMode: 'multiple-choice', choices }, 0)).toMatchObject({ mode: 'choice', text: 'pick 1–3' })
+  })
+
+  test('touch devices get a tap hint instead of number keys', () => {
+    const choices = [1, 2, 3, 4].map((i) => ({ id: `c${i}`, text: String(i) }))
+    const c = quiverContent({ ...base, inputMode: 'multiple-choice', choices }, 0, true)
+    expect(c).toMatchObject({ mode: 'choice', text: TOUCH_CHOICE_HINT })
+    expect(c.text).not.toMatch(/\d/)
+    expect(quiverContent({ ...base, quiver: '7' }, 0, true)).toMatchObject({ mode: 'typing', text: '7' })
   })
 
   test('hidden without a target, and after game over', () => {

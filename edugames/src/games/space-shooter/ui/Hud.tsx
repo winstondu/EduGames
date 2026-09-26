@@ -1,5 +1,5 @@
 /** HUD band: pause/mute, board title, score, level, streak, lives, shield and effect countdowns. */
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { POWERUP_ICONS } from '../assets/powerups'
 import { UI_ICONS } from '../assets/ui'
 import { START_LIVES, type ActiveEffect, type Engine } from '../engine/types'
@@ -12,14 +12,16 @@ export interface HudProps {
   /** Playing slower than normal speed (score gets a 🐢). */
   slow?: boolean
   engine: Engine | null
+  /** Question banner shown in the HUD row (wide layout); it takes the title chip's place. */
+  banner?: ReactNode
   onPause(): void
   onToggleMute(): void
 }
 
-export function Hud({ hud, title, muted, slow, engine, onPause, onToggleMute }: HudProps) {
+export function Hud({ hud, title, muted, slow, engine, banner, onPause, onToggleMute }: HudProps) {
   const hearts = Math.max(hud.lives, START_LIVES)
   return (
-    <div className="ss-hud">
+    <div className={`ss-hud${banner ? ' has-banner' : ''}`}>
       <div className="ss-hud-left">
         <button type="button" className="ss-icon-btn" onClick={onPause} aria-label="Pause" title="Pause (Esc)">
           <img src={UI_ICONS.pause} alt="" />
@@ -34,10 +36,14 @@ export function Hud({ hud, title, muted, slow, engine, onPause, onToggleMute }: 
         >
           <img src={muted ? UI_ICONS.soundOff : UI_ICONS.soundOn} alt="" />
         </button>
-        <span className="ss-hud-title" title={title}>
-          {title}
-        </span>
+        {!banner && (
+          <span className="ss-hud-title" title={title}>
+            {title}
+          </span>
+        )}
       </div>
+
+      {banner && <div className="ss-hud-banner">{banner}</div>}
 
       <div className="ss-hud-score" aria-label={`Score ${hud.score}`}>
         <span key={hud.score} className="ss-score-value">

@@ -18,6 +18,7 @@ import { GameOver, type RunResult } from './GameOver'
 import { Hud } from './Hud'
 import { useMediaQuery, useMuted } from './hooks'
 import { PauseMenu, SettingsDialog } from './Menus'
+import { reservedTopWorld, toastAnchor, type ToastAnchor } from './overlays'
 import { Modal } from './Screens'
 import { startSession, type HudSnapshot, type Session } from './session'
 
@@ -95,6 +96,10 @@ export function PlayScreen(props: PlayScreenProps) {
   const [failure, setFailure] = useState<string | null>(null)
   const [panel, setPanel] = useState<'settings' | null>(null)
   const [feedback, setFeedback] = useState<WrongFeedback | null>(null)
+  const [toastAt, setToastAt] = useState<ToastAnchor>('top')
+  const layerRef = useRef<HTMLDivElement>(null)
+  /** CSS px below the layer's top covered by the HUD row (+ banner) in the wide layout. */
+  const [reservedPx, setReservedPx] = useState(0)
   const [result, setResult] = useState<RunResult | null>(null)
   const [layer, setLayer] = useState<LayerRect | null>(null)
   const stacked = useMediaQuery(STACKED_QUERY)
@@ -120,6 +125,7 @@ export function PlayScreen(props: PlayScreenProps) {
       formats: props.formats,
       settings,
       canvas,
+      touch: coarse,
       audio,
       seed: props.seed,
       signal: controller.signal,
@@ -146,7 +152,9 @@ export function PlayScreen(props: PlayScreenProps) {
     return session.subscribe((events) => {
       for (const e of events) {
         if (e.type === 'wrongAnswer') {
-          const asteroid = session.engine.state.asteroids.find((a) => a.id === e.asteroidId)
+          const s = session.engine.state
+          const asteroid = s.asteroids.find((a) => a.id === e.asteroidId)
+          setToastAt(toastAnchor(s.ship.lane, s.lanes))
           setFeedback({
             id: ++toastId,
             display: e.display,
@@ -242,6 +250,29 @@ export function PlayScreen(props: PlayScreenProps) {
     }
   }, [session])
 
+  // The wide HUD row (with the question banner) covers the top of the stage: keep the toast,
+  // the pending chip and the ship's quiver bubble below it.
+  useLayoutEffect(() => {
+    const layerEl = layerRef.current
+    const hudEl = stacked ? null : layerEl?.querySelector<HTMLElement>('.ss-hud')
+    if (!session || !layerEl || !hudEl) {
+      setReservedPx(0)
+      session?.view.setReservedTop(null)
+      return
+    }
+    const measure = () => {
+      const top = layerEl.getBoundingClientRect().top
+      const bottom = Math.ceil(hudEl.getBoundingClientRect().bottom - top)
+      setReservedPx(bottom)
+      session.view.setReservedTop(reservedTopWorld(bottom, layerEl.clientHeight))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(hudEl)
+    observer.observe(layerEl)
+    return () => observer.disconnect()
+  }, [session, stacked, layer])
+
   const send = useCallback(
     (command: Command) => {
       if (session?.engine.state.status === 'playing') session.dispatch(command)
@@ -285,10 +316,11 @@ export function PlayScreen(props: PlayScreenProps) {
   const target = hud.target?.problem ?? null
   const showDeck = stacked || coarse
   const rtl = settings.direction === 'rtl'
-  const hudEl = (
+  const hudEl = (banner?: boolean) => (
     <Hud
       hud={hud}
       title={title}
+      banner={banner && target && needsBanner(target) ? <QuestionBanner problem={target} /> : undefined}
       muted={muted}
       slow={(session?.slowestSpeed ?? settings.speed) < 1}
       engine={session?.engine ?? null}
@@ -311,6 +343,7 @@ export function PlayScreen(props: PlayScreenProps) {
         width: layer.width,
         height: layer.height,
         '--u': `${layer.width / WORLD.width}px`,
+        '--reserved-top': `${reservedPx}px`,
       } as CSSProperties)
     : undefined
 
@@ -318,7 +351,7 @@ export function PlayScreen(props: PlayScreenProps) {
     <div className={`ss-root ${stacked ? 'is-stacked' : 'is-wide'}${showDeck ? ' has-deck' : ''}${rtl ? ' is-rtl' : ''}`}>
       {stacked && (
         <div className="ss-top">
-          {hudEl}
+          {hudEl()}
           <div className="ss-top-banner">{target && <QuestionBanner problem={target} />}</div>
         </div>
       )}
@@ -335,17 +368,16 @@ export function PlayScreen(props: PlayScreenProps) {
         >
           <canvas ref={canvasRef} className="ss-canvas" aria-label="Game area" />
           {session && layer && (
-            <div className="ss-layer" style={layerStyle}>
-              {!stacked && hudEl}
-              {!stacked && target && needsBanner(target) && (
-                <div className="ss-layer-banner">
-                  <QuestionBanner problem={target} />
-                </div>
-              )}
+            <div className="ss-layer" style={layerStyle} ref={layerRef}>
+              {!stacked && hudEl(true)}
               {!showDeck && mode === 'multiple-choice' && <div className="ss-layer-choices">{choicePad('strip')}</div>}
-              <PendingChip count={hud.pending} />
-              {feedback && (
-                <div className="ss-layer-toast">
+              {/* Notes dock on the far side (away from the ship); the toast takes the half away from its lane. */}
+              <div className="ss-layer-notes is-top">
+                <PendingChip count={hud.pending} />
+                {feedback && toastAt === 'top' && <FeedbackToast key={feedback.id} feedback={feedback} onDone={clearFeedback} />}
+              </div>
+              {feedback && toastAt === 'bottom' && (
+                <div className="ss-layer-notes is-bottom">
                   <FeedbackToast key={feedback.id} feedback={feedback} onDone={clearFeedback} />
                 </div>
               )}

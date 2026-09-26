@@ -87,14 +87,18 @@ export interface BubblePlacement {
 
 export const BUBBLE_GAP = 6
 
+/** Default ceiling for the bubble: the HUD band (a little overlap is fine). */
+export const BUBBLE_CEILING = WORLD.hudTop - 12
+
 /**
- * Put the bubble above the ship unless it would climb into the HUD band; then
- * hang it below. `bodyHeight` excludes the tail of height `tail`.
+ * Put the bubble above the ship unless it would climb above `ceiling` (the HUD
+ * band, or the bottom of whatever the UI overlays at the top, e.g. a tall
+ * question banner); then hang it below. `bodyHeight` excludes the tail of height `tail`.
  */
-export function placeBubble(shipY: number, bodyHeight: number, tail: number): BubblePlacement {
+export function placeBubble(shipY: number, bodyHeight: number, tail: number, ceiling = BUBBLE_CEILING): BubblePlacement {
   const halfShip = SHIP_SPRITE.height / 2
   const aboveTop = shipY - halfShip - BUBBLE_GAP - tail - bodyHeight
-  if (aboveTop >= WORLD.hudTop - 12) return { y: aboveTop + bodyHeight / 2, above: true }
+  if (aboveTop >= Math.max(BUBBLE_CEILING, ceiling)) return { y: aboveTop + bodyHeight / 2, above: true }
   return { y: shipY + halfShip + BUBBLE_GAP + tail + bodyHeight / 2, above: false }
 }
 
@@ -107,11 +111,22 @@ export interface QuiverContent {
   above: boolean
 }
 
-/** What the quiver bubble shows: typed answer, "?" + caret while empty, a pick hint for multiple choice, or nothing. */
-export function quiverContent(state: Pick<GameState, 'targetId' | 'inputMode' | 'quiver' | 'choices' | 'status'>, time: number): Omit<QuiverContent, 'above'> {
+/** Multiple-choice hint for touch devices (no number keys to press). */
+export const TOUCH_CHOICE_HINT = 'tap an answer'
+
+/**
+ * What the quiver bubble shows: typed answer, "?" + caret while empty, a pick
+ * hint for multiple choice ("pick 1–n" keys, or a tap hint on touch), or nothing.
+ */
+export function quiverContent(
+  state: Pick<GameState, 'targetId' | 'inputMode' | 'quiver' | 'choices' | 'status'>,
+  time: number,
+  touch = false,
+): Omit<QuiverContent, 'above'> {
   const caret = Math.floor(time * 2.4) % 2 === 0
   if (state.status === 'over') return { mode: 'hidden', text: '', caret }
   if (state.inputMode === 'multiple-choice' && state.targetId !== null) {
+    if (touch) return { mode: 'choice', text: TOUCH_CHOICE_HINT, caret }
     const n = Math.max(1, state.choices.length)
     return { mode: 'choice', text: `pick 1–${n}`, caret }
   }

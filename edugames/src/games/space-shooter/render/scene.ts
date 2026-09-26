@@ -33,6 +33,8 @@ export interface GameSceneOptions {
   sim: Engine
   direction: Direction
   quality: number
+  /** Touch device: the quiver's multiple-choice hint says "tap" instead of naming keys. */
+  touch?: boolean
   shipImage: ex.ImageSource
   powerupImages: Record<PowerupKind, ex.ImageSource>
   /** Paces the fixed steps (scale, lockstep, queued manual steps). */
@@ -66,6 +68,8 @@ export class GameScene extends ex.Scene {
   private powerups!: EntityPool<PowerupState, PowerupActor>
   private shipPos = { x: 0, y: 0 }
   private targetId: number | null = null
+  /** World y the quiver bubble stays below (UI overlays at the top); undefined = HUD band. */
+  private reservedTop: number | undefined
 
   constructor(options: GameSceneOptions) {
     super()
@@ -93,7 +97,7 @@ export class GameScene extends ex.Scene {
 
     this.ship = new ShipActor(direction, quality, rasterize(this.o.shipImage, SHIP_SPRITE.width, SHIP_SPRITE.height, quality * 1.5))
     this.add(this.ship)
-    this.quiver = new QuiverActor(direction, quality)
+    this.quiver = new QuiverActor(direction, quality, this.o.touch)
     this.add(this.quiver)
     this.fx = new EffectsActor(direction, quality, this.lanes)
     this.add(this.fx)
@@ -165,6 +169,10 @@ export class GameScene extends ex.Scene {
     this.o.time.reset()
   }
 
+  setReservedTop(y: number | null): void {
+    this.reservedTop = y ?? undefined
+  }
+
   /** Stop stepping for good (the view is being disposed). */
   stop(): void {
     this.stopped = true
@@ -210,7 +218,7 @@ export class GameScene extends ex.Scene {
     this.asteroids.sync(s.asteroids)
     this.bolts.sync(s.bolts)
     this.powerups.sync(s.powerups)
-    this.quiver.sync(s, this.shipPos.x, shipY, this.time)
+    this.quiver.sync(s, this.shipPos.x, shipY, this.time, this.reservedTop)
   }
 }
 
