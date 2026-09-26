@@ -48,8 +48,8 @@ api/                       API Worker → https://api.games.winstondu.com (own w
   migrations/              D1 schema
 ```
 
-Dependency rule: `engine` → `generators/types` only. `render` → `engine`,
-`assets`, `shared/kit`, `shared/mathtext`, excalibur. `ui` → everything except
+Dependency rule: `engine` → `generators/types` and `shared/rng` only. `render` →
+`engine`, `assets`, `shared/kit`, `shared/mathtext`, `shared/rng`, excalibur. `ui` → everything except
 concrete generators. Generators import only `generators/types`, `shared/rng`,
 `shared/mathtext` — never games, React, or Excalibur. Nothing under
 `src/generators/` or `api/` may mention a specific game.
