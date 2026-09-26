@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edugames",
+  "compatibility_date": "2026-09-26",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [
+    { "pattern": "games.winstondu.com", "custom_domain": true }
+  ]
+}
