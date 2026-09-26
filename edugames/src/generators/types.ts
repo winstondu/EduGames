@@ -165,6 +165,8 @@ export interface GeneratorPlugin<Options = unknown> {
   name: string
   description: string
   kind: 'client' | 'hybrid'
+  /** Test-only generators (e.g. `fixture`): listed in the manifest but hidden from launchers outside the dev harness. */
+  hidden?: boolean
   maxLevel: number
   /** Default input spec for freeform problems. */
   defaultInput: AnswerInputSpec
@@ -210,6 +212,7 @@ export interface GeneratorManifestEntry {
   description: string
   kind: 'client' | 'hybrid'
   formats: ProblemFormat[]
+  hidden?: boolean
   version: string
   /** Absolute module URL to `import()` (our API origin, or the Vite dev server in dev); default export is a GeneratorPlugin. */
   entry: string
