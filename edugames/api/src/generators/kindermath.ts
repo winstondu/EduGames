@@ -10,6 +10,7 @@
  * upstream — client cookies/headers are never forwarded, and upstream
  * cookies/auth headers are never returned to the browser.
  */
+import { rateLimit } from '../ratelimit'
 import type { GeneratorEnv, GeneratorServer } from './types'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -225,6 +226,8 @@ export const kindermathServer: GeneratorServer = {
       // POST check {questionId, given}
       if (parts.length === 1 && parts[0] === 'check') {
         if (method !== 'POST') return errorJson(405, 'method not allowed')
+        const limited = await rateLimit(env.GENERATOR_CHECK_LIMITER, request, 'kindermath:check', env.IP_HASH_SALT)
+        if (limited) return limited
         const body = (await readJsonBody(request)) as { questionId?: unknown; given?: unknown }
         const questionId = body.questionId
         const given = body.given
@@ -245,12 +248,16 @@ export const kindermathServer: GeneratorServer = {
       // GET session
       if (parts.length === 1 && parts[0] === 'session') {
         if (method !== 'GET') return errorJson(405, 'method not allowed')
+        const limited = await rateLimit(env.GENERATOR_SESSION_LIMITER, request, 'kindermath:session', env.IP_HASH_SALT)
+        if (limited) return limited
         return json(await sessionStatus(env))
       }
 
       // POST login / POST logout — stub placeholders
       if (parts.length === 1 && (parts[0] === 'login' || parts[0] === 'logout')) {
         if (method !== 'POST') return errorJson(405, 'method not allowed')
+        const limited = await rateLimit(env.GENERATOR_SESSION_LIMITER, request, 'kindermath:session', env.IP_HASH_SALT)
+        if (limited) return limited
         if (parts[0] === 'login') await readJsonBody(request) // validate size/shape, ignore creds
         const status = await sessionStatus(env)
         return json({

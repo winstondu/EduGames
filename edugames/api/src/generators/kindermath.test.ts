@@ -273,3 +273,67 @@ describe('upstream identity and errors', () => {
     expect(parsed.message).toContain('demo')
   })
 })
+
+// --- rate limiting ----------------------------------------------------------
+
+describe('rate limiting', () => {
+  const id = 'a6e6d424-ebc2-4607-99cf-c52808e3dd8f'
+
+  /** Fake Workers RateLimit binding: allows `max` hits per key. */
+  function limiter(max: number) {
+    const counts = new Map<string, number>()
+    const keys: string[] = []
+    return {
+      keys,
+      async limit({ key }: { key: string }) {
+        keys.push(key)
+        const n = (counts.get(key) ?? 0) + 1
+        counts.set(key, n)
+        return { success: n <= max }
+      },
+    }
+  }
+
+  function callWith(limitEnv: Partial<GeneratorEnv>, method: string, subpath: string, body?: unknown, ip = '9.9.9.9') {
+    const req = new Request(`https://api.games.winstondu.com/v1/generators/kindermath/${subpath}`, {
+      method,
+      headers: { 'CF-Connecting-IP': ip },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+    return kindermathServer.handle(req, subpath, { ...env, ...limitEnv }, ctx)
+  }
+
+  test('check → 429 once the client is over the limit, without reaching upstream', async () => {
+    responder = () => jsonResponse({ correct: true })
+    const lim = limiter(2)
+    const e = { GENERATOR_CHECK_LIMITER: lim }
+    const statuses: number[] = []
+    for (let i = 0; i < 3; i++) {
+      statuses.push((await callWith(e, 'POST', 'check', { questionId: id, given: 'b' })).status)
+    }
+    expect(statuses).toEqual([200, 200, 429])
+    expect(calls.filter((c) => c.url.endsWith('/attempts'))).toHaveLength(2)
+    const res = await callWith(e, 'POST', 'check', { questionId: id, given: 'b' })
+    expect(res.headers.get('retry-after')).toBe('60')
+    expect((await readBody<{ error: string }>(res)).error).toContain('try again')
+    // Another client is unaffected.
+    expect((await callWith(e, 'POST', 'check', { questionId: id, given: 'b' }, '8.8.8.8')).status).toBe(200)
+  })
+
+  test('session, login and logout share the session limiter', async () => {
+    responder = () => jsonResponse({ name: 'Demo' })
+    const e = { GENERATOR_SESSION_LIMITER: limiter(2) }
+    expect((await callWith(e, 'GET', 'session')).status).toBe(200)
+    expect((await callWith(e, 'POST', 'login', {})).status).toBe(200)
+    expect((await callWith(e, 'POST', 'logout')).status).toBe(429)
+    expect((await callWith(e, 'GET', 'session')).status).toBe(429)
+  })
+
+  test('cached content routes are not limited', async () => {
+    responder = () => jsonResponse([])
+    const lim = limiter(0)
+    const e = { GENERATOR_CHECK_LIMITER: lim, GENERATOR_SESSION_LIMITER: lim }
+    expect((await callWith(e, 'GET', 'courses')).status).toBe(200)
+    expect(lim.keys).toHaveLength(0)
+  })
+})

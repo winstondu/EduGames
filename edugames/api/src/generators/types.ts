@@ -4,8 +4,19 @@
  * its upstream (so browsers never need upstream CORS and credentials stay here).
  */
 
+import type { RateLimiter } from '../ratelimit'
+
 /** Bindings/vars a generator server half may read (declared in wrangler.jsonc / .dev.vars). */
 export interface GeneratorEnv {
+  /**
+   * Rate limit for answer checks (each one reaches the upstream uncached, possibly posting an attempt).
+   * Workers Rate Limiting binding; absent in unit tests → no limit (see ../ratelimit.ts).
+   */
+  GENERATOR_CHECK_LIMITER?: RateLimiter
+  /** Rate limit for session / login / logout pass-throughs (uncached upstream calls). */
+  GENERATOR_SESSION_LIMITER?: RateLimiter
+  /** Optional secret salt for hashing client IPs (rate-limit keys, score abuse guard). */
+  IP_HASH_SALT?: string
   /** API Worker static assets (built plugin modules under /plugins/, plus plugins/manifest.json). */
   ASSETS: Fetcher
   /** Dev only: Vite dev-server origin (e.g. "http://localhost:5173"); when set, the manifest points entries at /src/generators/<id>/index.ts there. */

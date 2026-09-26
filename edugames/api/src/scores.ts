@@ -11,6 +11,7 @@ import type {
   SubmitScoreResponse,
 } from '../../src/shared/highscores/types'
 import type { Env } from './index'
+import { clientIp, hashIp } from './ratelimit'
 import {
   byteLength,
   MAX_BODY_BYTES,
@@ -79,7 +80,7 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
   if (!parsed.ok) return errorResponse(parsed.error, 400)
   const s = parsed.value
 
-  const ipHash = await hashIp(request.headers.get('CF-Connecting-IP') ?? 'unknown', env.IP_HASH_SALT ?? '')
+  const ipHash = await hashIp(clientIp(request), env.IP_HASH_SALT ?? '')
   const recent = await env.DB.prepare(
     `SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ?1 AND created_at > datetime('now', '-60 seconds')`,
   )
@@ -130,10 +131,4 @@ function parseMeta(raw: string | null): Meta | undefined {
   } catch {
     return undefined
   }
-}
-
-/** Salted SHA-256 of the client IP, truncated — never store raw IPs. */
-async function hashIp(ip: string, salt: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}:${ip}`))
-  return Array.from(new Uint8Array(digest).slice(0, 16), (b) => b.toString(16).padStart(2, '0')).join('')
 }

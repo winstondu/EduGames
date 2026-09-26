@@ -44,6 +44,7 @@ src/shared/                rng, apiBase, highscores API types + client
 api/                       API Worker → https://api.games.winstondu.com (own wrangler.jsonc)
   src/index.ts             router + CORS: /v1/scores (D1), /v1/generators (manifest), /plugins/* (modules)
   src/generators/          server halves of hybrid plugins (kindermath.ts)
+  src/ratelimit.ts         per-client limits (Workers `ratelimits` binding) for uncached upstream routes
   migrations/              D1 schema
 ```
 
