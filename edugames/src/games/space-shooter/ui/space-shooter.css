@@ -498,7 +498,8 @@
 .ss-deck {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* safe: content taller than the deck starts at the top (scrollable) instead of overflowing both ends. */
+  justify-content: safe center;
   gap: 10px;
   padding: 10px 12px max(12px, env(safe-area-inset-bottom));
   background: var(--space-light);
@@ -601,19 +602,15 @@
   gap: 10px;
 }
 
+/* --cols comes from the pad layout (controls.ts); minmax(0, 1fr) keeps columns equal (FIRE! never widens one). */
 .ss-keys {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
   gap: 8px;
 }
 
 .ss-keypad--text .ss-keys {
-  grid-template-columns: repeat(7, 1fr);
-  gap: 5px;
-}
-
-.is-wide .ss-keypad--text .ss-keys {
-  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
 }
 
 .ss-key {
@@ -633,12 +630,17 @@
   min-height: clamp(44px, 7dvh, 68px);
 }
 
-.ss-keypad--text .ss-key {
+.ss-keypad--text .ss-key,
+.ss-keypad--text .ss-fire--pad {
   min-height: 40px;
   font-size: 1.1rem;
   border-width: 2px;
   border-radius: 9px;
   box-shadow: 2px 2px 0 var(--ink);
+}
+
+.ss-key--op {
+  background: #dfe9ff;
 }
 
 .ss-key:active:not(:disabled) {
@@ -649,6 +651,11 @@
 
 .ss-key--back {
   background: var(--paper-shade);
+}
+
+.ss-key,
+.ss-fire--pad {
+  min-width: 0;
 }
 
 .ss-key:disabled,
@@ -802,6 +809,44 @@
 @media (prefers-reduced-motion: reduce) {
   .ss-sysfield .ss-sysfield-box {
     animation: none;
+  }
+}
+
+/* Landscape phones: quiver + pad (8 text rows or 4 dial rows) fit the height without scrolling. */
+@media (max-height: 500px) {
+  .is-wide .ss-deck {
+    gap: 6px;
+    padding: max(6px, env(safe-area-inset-top)) 8px max(6px, env(safe-area-inset-bottom));
+  }
+
+  .is-wide .ss-quiver {
+    min-height: 40px;
+    padding: 2px 10px;
+    font-size: 1.35rem;
+    border-width: 2px;
+  }
+
+  /* A dial-pad column is ~54px here: shrink FIRE! to fit it instead of widening the column. */
+  .is-wide .ss-keypad--numeric .ss-fire--pad {
+    padding: 0;
+    font-size: 0.9rem;
+    letter-spacing: 0;
+  }
+
+  .is-wide .ss-keypad--text .ss-keys {
+    gap: 3px;
+  }
+
+  .is-wide .ss-keypad--text .ss-key,
+  .is-wide .ss-keypad--text .ss-fire--pad {
+    min-height: calc((100dvh - 110px) / 8);
+    font-size: 1rem;
+    border-radius: 7px;
+    box-shadow: 1px 2px 0 var(--ink);
+  }
+
+  .is-wide .ss-keypad--text .ss-fire--pad {
+    font-size: 0.95rem;
   }
 }
 
@@ -1363,6 +1408,108 @@ kbd {
 @media (max-width: 520px) {
   .ss-top .ss-hud-title {
     display: none;
+  }
+}
+
+/* Short screens (landscape phones): compact dialogs; the panel scrolls, game-over actions stay in view. */
+@media (max-height: 500px) {
+  .ss-modal {
+    max-height: calc(100dvh - 16px);
+  }
+
+  .ss-modal-panel {
+    max-height: calc(100dvh - 24px);
+    padding: 12px 16px;
+  }
+
+  .ss-modal-title {
+    margin-bottom: 6px;
+    font-size: 1.3rem;
+  }
+
+  .ss-modal-panel .ss-actions {
+    margin-top: 8px;
+  }
+
+  /* Settings: wider dialog, settings flow side by side (ship row, then Fly | Lanes Sound, then Speed). */
+  .ss-modal:not(.ss-modal--narrow, .ss-modal--wide) {
+    max-width: 720px;
+  }
+
+  .ss-settings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+    padding: 10px;
+  }
+
+  .ss-settings > .ss-setting:first-child,
+  .ss-settings > .ss-keybinds {
+    flex-basis: 100%;
+  }
+
+  .ss-setting {
+    gap: 4px;
+  }
+
+  .ss-ship {
+    grid-template-columns: auto auto;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    padding: 2px 6px;
+  }
+
+  .ss-ship img {
+    max-width: 44px;
+  }
+
+  .ss-over {
+    gap: 8px;
+  }
+
+  .ss-over-title {
+    font-size: 1.8rem;
+  }
+
+  .ss-over-board {
+    margin-top: -6px;
+  }
+
+  .ss-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .ss-stat {
+    padding: 4px;
+  }
+
+  .ss-stat dt {
+    font-size: 0.65rem;
+  }
+
+  .ss-stat dd {
+    font-size: 1.25rem;
+  }
+
+  .ss-over-grid {
+    gap: 12px;
+  }
+
+  .ss-over .ss-actions {
+    position: sticky;
+    bottom: -12px; /* the panel's bottom padding */
+    margin: 0 -16px -12px;
+    padding: 8px 16px 12px;
+    background: var(--paper);
+    border-top: 2px dashed var(--paper-shade);
+  }
+
+  .ss-over .ss-actions .btn--big {
+    min-height: 48px;
+    padding-block: 6px;
+    font-size: 1.2rem;
   }
 }
 

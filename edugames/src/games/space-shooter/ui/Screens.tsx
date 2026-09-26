@@ -54,7 +54,10 @@ export function Modal({
     if (!dialog) return
     if (!dialog.open) dialog.showModal()
     // showModal() focuses the first focusable element; prefer an explicit [data-autofocus] target.
-    dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus()
+    // Open at the top (title in view) even when that target sits below the fold on short screens.
+    dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus({ preventScroll: true })
+    const panel = dialog.querySelector<HTMLElement>('.ss-modal-panel')
+    if (panel) panel.scrollTop = 0
     const onCancel = (e: Event) => {
       e.preventDefault()
       escape.current?.()

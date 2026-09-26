@@ -86,19 +86,66 @@ export function keypadChars(input: AnswerInputSpec): string[] {
   return [...base, ...extras].filter((c, i, all) => all.indexOf(c) === i && acceptsChar(input, c))
 }
 
+/** One grid cell of a keypad (null = spacer); `span` columns wide (default 1). */
+export type PadCell = (KeypadKey & { span?: number }) | null
+
+/** A keypad grid: `cells` fill `columns`-wide rows in order (spans included). */
+export interface PadLayout {
+  columns: number
+  cells: PadCell[]
+}
+
+const char = (c: string): KeypadKey => ({ kind: 'char', char: c })
+
 /**
- * Phone-style dial pad for numeric answers (3 columns): 1–9, then a row of
- * the spec's extra characters (e.g. "-", "/", padded with null spacers), then
- * ⌫ 0 FIRE — so FIRE sits in the pad and the deck fits small phones.
+ * Phone-style dial pad for numeric answers. Without extras: 3 columns, 1–9
+ * then ⌫ 0 FIRE. With the spec's extra characters (e.g. "-", ".", "/"): a 4th
+ * column holds them beside the digit rows (overflow gets rows of its own) and
+ * FIRE spans 2 — FIRE stays in the pad so the deck fits small phones.
  */
-export function numericPadLayout(input: AnswerInputSpec): (KeypadKey | null)[] {
+export function numericPadLayout(input: AnswerInputSpec): PadLayout {
   const chars = keypadChars(input)
-  const digits = '123456789'.split('').filter((d) => chars.includes(d))
+  const digit = (d: string): PadCell => (chars.includes(d) ? char(d) : null)
   const extras = chars.filter((c) => !/[0-9]/.test(c))
-  const char = (c: string): KeypadKey => ({ kind: 'char', char: c })
-  const extraRows = extras.map(char) as (KeypadKey | null)[]
-  while (extraRows.length % 3) extraRows.push(null)
-  return [...digits.map(char), ...extraRows, { kind: 'backspace' }, chars.includes('0') ? char('0') : null, { kind: 'fire' }]
+  const rows = ['123', '456', '789'].map((row) => [...row].map(digit))
+  const bottom: PadCell[] = [{ kind: 'backspace' }, digit('0')]
+  if (!extras.length) return { columns: 3, cells: [...rows.flat(), ...bottom, { kind: 'fire' }] }
+  const side: PadCell[] = extras.map(char)
+  const cells = rows.flatMap((row) => [...row, side.shift() ?? null])
+  while (side.length) cells.push(...[0, 1, 2, 3].map(() => side.shift() ?? null))
+  return { columns: 4, cells: [...cells, ...bottom, { kind: 'fire', span: 2 }] }
+}
+
+const TEXT_COLUMNS = 6
+
+/**
+ * Text keypad sized for the narrow side deck (6 columns, fits a landscape
+ * phone without scrolling): a–z, space, ⌫ and the spec's extra characters,
+ * then the digits on rows of their own with FIRE spanning the rest of the
+ * last row (bottom-right, as on the dial pad).
+ */
+export function textPadLayout(input: AnswerInputSpec): PadLayout {
+  const chars = keypadChars(input)
+  const cells: PadCell[] = []
+  let col = 0 // column of the next cell in the current row
+  const put = (cell: PadCell, span = 1) => {
+    cells.push(cell && span > 1 ? { ...cell, span } : cell)
+    col = (col + span) % TEXT_COLUMNS
+  }
+  const endRow = () => {
+    while (col) put(null)
+  }
+  const isDigit = (c: string) => /^[0-9]$/.test(c)
+  chars.filter((c) => LETTERS.includes(c)).forEach((c) => put(char(c)))
+  if (acceptsChar(input, ' ')) put(char(' '))
+  put({ kind: 'backspace' })
+  chars.filter((c) => !LETTERS.includes(c) && !isDigit(c)).forEach((c) => put(char(c)))
+  endRow()
+  chars.filter(isDigit).forEach((c) => put(char(c)))
+  // FIRE takes the rest of the last row (a full row when fewer than 2 columns are left).
+  if (col > TEXT_COLUMNS - 2) endRow()
+  put({ kind: 'fire' }, TEXT_COLUMNS - col)
+  return { columns: TEXT_COLUMNS, cells }
 }
 
 export interface AnswerFieldContext {

@@ -78,7 +78,7 @@ concrete generators. Generators import only `generators/types`, `shared/rng`,
   `open()` skips the start screen, uses `settings` for that run only (never saved) and is
   always **unrecorded** (so is reading `.harness`). Settings/speed from the player's own
   menu still work; the harness scale owns the view's pace while it runs.
-- Meta panel: the 🛠 button (bottom-left) — session meta, scale / lockstep / step, command
+- Meta panel: the 🛠 tab (top edge, centre) — session meta, scale / lockstep / step, command
   console, event log, state, replay export, and an "open…" form that lists the hidden
   `fixture` generator.
 - Browser replays run headless: `bun run sim -- --replay run.json` (seeds via `deriveSeeds`).
