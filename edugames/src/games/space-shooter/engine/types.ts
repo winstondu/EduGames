@@ -1,16 +1,21 @@
 /**
  * Engine contract for the space shooter.
  *
- * The engine is a pure, deterministic simulation: no DOM, no canvas, no React,
- * no timers. It only knows the ProblemSource interface, never a concrete
- * generator. Callers drive it with a fixed timestep (`STEP_SECONDS`).
+ * The engine is a pure, deterministic simulation: no DOM, no canvas, no
+ * Excalibur, no React, no timers, no Promises. It pulls problems from
+ * `ProblemSource.next()` but NEVER checks answers itself: when a bolt reaches
+ * an asteroid it emits `checkRequested`, freezes that asteroid as `pending`,
+ * and waits for a `resolveCheck` command. The host (session layer) calls
+ * `ProblemSource.check()` — sync or async — and dispatches the result, so
+ * server-checked answers (hybrid plugins) and local ones share one path.
  *
  * Coordinates are in a fixed logical world (WORLD.width × WORLD.height).
  * `x` is measured from the ship's ("leading") edge toward the far edge where
- * asteroids spawn, so the engine is direction-agnostic; the renderer mirrors
- * x for right-to-left play. Lanes are indexed 0..lanes-1 from top to bottom.
+ * asteroids spawn, so the engine is direction-agnostic; the view mirrors x
+ * for right-to-left play. Lanes are indexed 0..lanes-1 from top to bottom.
+ * The ship collides in lane `Math.round(ship.laneY)`.
  */
-import type { AnswerMode, Problem, ProblemSource } from '../../../generators/types'
+import type { AnswerInputSpec, CheckResult, Choice, Problem, ProblemSource } from '../../../generators/types'
 
 export type Direction = 'ltr' | 'rtl'
 
@@ -19,13 +24,13 @@ export const STEP_SECONDS = 1 / 60
 export const WORLD = {
   width: 1600,
   height: 900,
-  /** Reserved band at the top for the HUD (score, lives, effects). */
-  hudTop: 80,
+  /** Reserved band at the top for the HUD / question banner. */
+  hudTop: 96,
   hudBottom: 24,
-  /** Width of the choice strip hugging the leading edge (choice mode). */
-  choiceStripWidth: 120,
-  /** Ship centre, measured from the leading edge. */
-  shipX: 220,
+  /** Width of the choice strip hugging the leading edge (multiple-choice problems). */
+  choiceStripWidth: 150,
+  /** Ship centre, measured from the leading edge (just inside the choice strip). */
+  shipX: 250,
   /** Ship sprite half-extent along x, used for collisions. */
   shipHalfLength: 64,
 } as const
@@ -35,7 +40,8 @@ export const MAX_LANES = 5
 export const MAX_LIVES = 5
 export const START_LIVES = 3
 export const SHIELD_HITS = 3
-export const CHOICE_COUNT = 4
+/** Seconds a pending (server-checked) shot may wait before it is voided without penalty. */
+export const CHECK_TIMEOUT_SECONDS = 4
 
 export function laneHeight(lanes: number): number {
   return (WORLD.height - WORLD.hudTop - WORLD.hudBottom) / lanes
@@ -55,7 +61,7 @@ export type PowerupKind =
   | 'scoreBoost' // ×2 points for 15 s
   | 'doubleShots' // 15 s: a correct hit also destroys the next asteroid in that lane
   | 'shield' // absorbs SHIELD_HITS asteroid impacts
-  | 'speedBoost' // 10 s: lasers ×2 speed, lane switching ×2
+  | 'speedBoost' // 10 s: bolts ×2 speed, lane switching ×2
   | 'random' // resolves to one of the above on pickup
 
 export const POWERUP_KINDS: readonly PowerupKind[] = [
@@ -69,10 +75,10 @@ export const POWERUP_KINDS: readonly PowerupKind[] = [
 
 export interface GameConfig {
   lanes: number // MIN_LANES..MAX_LANES
-  answerMode: AnswerMode
-  /** Max characters the typed quiver accepts (from the generator plugin). */
-  maxAnswerLength: number
   problems: ProblemSource
+  /** Input spec for typed problems that don't carry their own. */
+  defaultInput: AnswerInputSpec
+  maxLevel: number
   seed: number
 }
 
@@ -81,7 +87,7 @@ export interface ShipState {
   lane: number
   /** Visual lane position, eases toward `lane` (fractional during moves). */
   laneY: number
-  /** Seconds of post-hit invulnerability remaining (renderer blinks the ship). */
+  /** Seconds of post-hit invulnerability remaining (view blinks the ship). */
   invulnerable: number
 }
 
@@ -90,23 +96,27 @@ export interface AsteroidState {
   lane: number
   x: number
   radius: number
-  /** Speed in world units / s toward the leading edge. */
+  /** Speed in world units / s toward the leading edge (0 while pending). */
   speed: number
   problem: Problem
-  /** Visual variety for the renderer: palette 0..3 and shape seed. */
+  /** Visual variety for the view: palette 0..3 and shape seed. */
   variant: number
   shapeSeed: number
   rotation: number
-  /** Seconds since a wrong answer bounced off it (renderer shakes it); 0 = none. */
+  /** A check for this asteroid is in flight; it is frozen and immune to further bolts. */
+  pending: boolean
+  /** Seconds since a wrong answer bounced off it (view shakes it); 0 = none. */
   wrongFlash: number
 }
 
-export interface LaserState {
+export interface BoltState {
   id: number
   lane: number
   x: number
-  /** Normalized answer this shot carries (shown on the bolt). */
-  answer: string
+  /** What gets checked: choice id (multiple choice) or typed text. */
+  given: string
+  /** What the bolt displays: choice text or typed text (may contain $…$). */
+  display: string
 }
 
 export interface PowerupState {
@@ -137,44 +147,58 @@ export interface GameState {
   correct: number
   wrong: number
   lanes: number
-  answerMode: AnswerMode
   ship: ShipState
   asteroids: AsteroidState[]
-  lasers: LaserState[]
+  bolts: BoltState[]
   powerups: PowerupState[]
   effects: ActiveEffect[]
   /** Remaining shield hits (0 = no shield). */
   shield: number
-  /** Answer loaded in the ship's quiver (typed mode: in-progress input). */
-  quiver: string
-  /** Nearest asteroid in the ship's lane, or null. Choice mode targets this. */
+  /** Nearest non-pending asteroid in the ship's lane, or null. */
   targetId: number | null
-  /** Choice mode: CHOICE_COUNT options for the target's problem ([] when no target). */
-  choices: string[]
+  /** How the current target is answered: its problem has choices → 'choice', else 'typed'; null without target. */
+  inputMode: 'typed' | 'choice' | null
+  /** Choices of the target's problem ([] unless inputMode === 'choice'). */
+  choices: Choice[]
+  /** Typed answer being composed in the quiver bubble (cleared on fire / retarget). */
+  quiver: string
+  /** Input spec in force for the quiver (target's, else config.defaultInput). */
+  input: AnswerInputSpec
+  /** Increments whenever any HUD-relevant field changes (cheap change detection). */
+  revision: number
 }
 
 export type Command =
   | { type: 'moveUp' }
   | { type: 'moveDown' }
   | { type: 'moveToLane'; lane: number }
-  /** Typed mode: append a character to the quiver (ignored past maxAnswerLength). */
+  /** Typed mode: append a character to the quiver (filtered by `state.input`). */
   | { type: 'typeChar'; char: string }
   | { type: 'backspace' }
   | { type: 'clearQuiver' }
-  /** Fire the quiver's answer down the ship's lane (typed mode). No-op if empty. */
+  /** Fire the quiver's typed answer down the ship's lane. No-op if empty. */
   | { type: 'fire' }
-  /** Choice mode: load choices[index] into the quiver and fire immediately. */
+  /** Multiple choice: fire choices[index] down the ship's lane. */
   | { type: 'choose'; index: number }
+  /** Result of a `checkRequested`; `null` result = check failed (network) → void the shot, no penalty. */
+  | { type: 'resolveCheck'; checkId: number; result: CheckResult | null }
   | { type: 'pause' }
   | { type: 'resume' }
 
-/** Emitted by `step` for the renderer (FX/sound) and UI. Positions are world coords. */
+/** Emitted by `step` (and `dispatch` where noted). Positions are world coords. */
 export type GameEvent =
-  | { type: 'fired'; lane: number; answer: string }
-  | { type: 'hit'; asteroidId: number; lane: number; x: number; points: number; bonus: boolean }
-  | { type: 'wrongAnswer'; asteroidId: number; lane: number; x: number; answer: string; expected: string }
+  | { type: 'asteroidSpawned'; asteroidId: number; lane: number }
+  | { type: 'targetChanged'; targetId: number | null }
+  | { type: 'fired'; boltId: number; lane: number; display: string }
+  /** Host must call ProblemSource.check(problem, given) and dispatch resolveCheck. */
+  | { type: 'checkRequested'; checkId: number; asteroidId: number; problem: Problem; given: string }
+  | { type: 'hit'; asteroidId: number; lane: number; x: number; points: number; bonus: boolean; explanation?: string }
+  | { type: 'wrongAnswer'; asteroidId: number; lane: number; x: number; display: string; expected?: string; explanation?: string }
+  /** A pending check timed out or failed; the asteroid resumes, no penalty. */
+  | { type: 'checkVoided'; checkId: number; asteroidId: number }
   | { type: 'shipHit'; lane: number; absorbedByShield: boolean }
   | { type: 'asteroidPassed'; asteroidId: number; lane: number; absorbedByShield: boolean }
+  | { type: 'lifeLost'; lives: number }
   | { type: 'powerupCollected'; kind: Exclude<PowerupKind, 'random'>; lane: number; fromRandom: boolean }
   | { type: 'effectEnded'; kind: ActiveEffect['kind'] }
   | { type: 'levelUp'; level: number }
@@ -184,7 +208,11 @@ export interface Engine {
   readonly config: GameConfig
   /** Live state; treat as read-only outside the engine. */
   readonly state: GameState
-  dispatch(command: Command): void
+  /** Apply a command. Returns events it caused immediately (e.g. 'fired', 'hit' from resolveCheck). */
+  dispatch(command: Command): GameEvent[]
   /** Advance one fixed step of `STEP_SECONDS`. Returns events that occurred. */
   step(): GameEvent[]
 }
+
+/** Implemented in engine/index.ts. */
+export type CreateEngine = (config: GameConfig) => Engine

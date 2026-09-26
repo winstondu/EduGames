@@ -1,7 +1,8 @@
 /**
- * Signatures of the procedural sprite modules in this folder. The renderer
- * imports these; art agents implement them. All functions draw with the
- * Canvas 2D API only and are deterministic for a given seed.
+ * Signatures of the procedural sprite modules in this folder. The Excalibur
+ * view wraps them (e.g. as ex.Canvas graphics or cached ImageSources); art
+ * modules themselves use the plain Canvas 2D API only (no Excalibur import)
+ * and are deterministic for a given seed.
  *
  *   asteroid.ts   export function createAsteroidSprite(opts: AsteroidSpriteOptions): HTMLCanvasElement
  *   background.ts export function createBackground(opts: BackgroundOptions): HTMLCanvasElement
