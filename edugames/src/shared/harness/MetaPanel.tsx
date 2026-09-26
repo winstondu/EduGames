@@ -302,12 +302,13 @@ function OpenForm({ options, entry }: { options: MetaPanelOptions; entry: Harnes
   )
 }
 
+// Collapsed: a small tab on the top edge's centre (between HUD pills and above the play field), so it never covers game controls.
 export const META_PANEL_CSS = `
-#edugames-harness { position: fixed; left: 8px; bottom: 8px; z-index: 2147483000; font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; color: #e8ecff; }
+#edugames-harness { position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 2147483000; font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; color: #e8ecff; }
 #edugames-harness button, #edugames-harness input, #edugames-harness select { font: inherit; color: #111; }
-.egh-fab { position: relative; width: 34px; height: 34px; border-radius: 50%; border: 1px solid #556; background: #1d2136cc; color: #fff !important; cursor: pointer; }
-.egh-dot { position: absolute; top: 2px; right: 2px; width: 8px; height: 8px; border-radius: 50%; background: #5f5; }
-.egh-panel { width: min(360px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: auto; background: #151a2ef2; border: 1px solid #445; border-radius: 8px; padding: 8px; box-shadow: 0 6px 24px #0008; }
+.egh-fab { position: relative; display: block; width: 44px; height: 18px; padding: 0; font-size: 11px !important; line-height: 16px; border-radius: 0 0 9px 9px; border: 1px solid #556; border-top: 0; background: #1d2136b3; color: #fff !important; cursor: pointer; }
+.egh-dot { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: #5f5; }
+.egh-panel { width: min(360px, calc(100vw - 16px)); max-height: calc(100vh - 16px); margin-top: 4px; overflow: auto; background: #151a2ef2; border: 1px solid #445; border-radius: 8px; padding: 8px; box-shadow: 0 6px 24px #0008; }
 .egh-head { display: flex; gap: 8px; align-items: baseline; }
 .egh-x { margin-left: auto; background: none; border: 0; color: #fff !important; font-size: 16px; cursor: pointer; }
 .egh-muted { color: #9aa3c7; margin: 4px 0; }

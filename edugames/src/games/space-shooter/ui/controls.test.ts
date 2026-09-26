@@ -3,7 +3,21 @@ import type { AnswerInputSpec, Problem } from '../../../generators/types'
 import { createKeymap, type Keymap } from '../../../shared/kit/input/keymap'
 import { WORLD, laneCenterY, type Command, type GameEvent } from '../engine/types'
 import { SHOOTER_ACTIONS } from '../input/actions'
-import { accuracyPercent, dragLane, keypadChars, numericPadLayout, keyToAction, laneAtY, needsBanner, type KeyAction, type KeyContext, type KeyEventLike } from './controls'
+import {
+  accuracyPercent,
+  dragLane,
+  keypadChars,
+  numericPadLayout,
+  keyToAction,
+  laneAtY,
+  needsBanner,
+  textPadLayout,
+  type KeyAction,
+  type KeyContext,
+  type KeyEventLike,
+  type PadCell,
+  type PadLayout,
+} from './controls'
 import { cueFor, playCues } from './cues'
 
 const numeric: AnswerInputSpec = { kind: 'numeric', maxLength: 3 }
@@ -141,17 +155,66 @@ describe('dragLane', () => {
   })
 })
 
-describe('numericPadLayout', () => {
-  const label = (k: ReturnType<typeof numericPadLayout>[number]) => (k === null ? '_' : k.kind === 'char' ? k.char : k.kind)
+describe('keypad layouts', () => {
+  const label = (k: PadCell) => (k === null ? '_' : (k.kind === 'char' ? k.char : k.kind) + (k.span ? `*${k.span}` : ''))
+  const rows = ({ columns, cells }: PadLayout) => {
+    const out: string[][] = [[]]
+    let col = 0
+    for (const cell of cells) {
+      if (col === columns) {
+        out.push([])
+        col = 0
+      }
+      out[out.length - 1].push(label(cell))
+      col += cell?.span ?? 1
+    }
+    return out.map((r) => r.join(' '))
+  }
 
-  test('dial pad: 1–9 then ⌫ 0 FIRE', () => {
-    expect(numericPadLayout({ kind: 'numeric', maxLength: 3 }).map(label).join(' ')).toBe('1 2 3 4 5 6 7 8 9 backspace 0 fire')
+  test('dial pad: 3 columns, 1–9 then ⌫ 0 FIRE', () => {
+    const pad = numericPadLayout({ kind: 'numeric', maxLength: 3 })
+    expect(pad.columns).toBe(3)
+    expect(rows(pad)).toEqual(['1 2 3', '4 5 6', '7 8 9', 'backspace 0 fire'])
   })
 
-  test('extras get their own padded row, keeping ⌫ 0 FIRE aligned at the bottom', () => {
-    const keys = numericPadLayout({ kind: 'numeric', maxLength: 5, allow: '-/' }).map(label)
-    expect(keys.join(' ')).toBe('1 2 3 4 5 6 7 8 9 - / _ backspace 0 fire')
-    expect(keys.length % 3).toBe(0)
+  test('extras fill a 4th column beside the digits; FIRE spans 2', () => {
+    const pad = numericPadLayout({ kind: 'numeric', maxLength: 5, allow: '-/' })
+    expect(pad.columns).toBe(4)
+    expect(rows(pad)).toEqual(['1 2 3 -', '4 5 6 /', '7 8 9 _', 'backspace 0 fire*2'])
+    expect(rows(numericPadLayout({ kind: 'numeric', maxLength: 5, allow: '-./' }))).toEqual(['1 2 3 -', '4 5 6 .', '7 8 9 /', 'backspace 0 fire*2'])
+  })
+
+  test('more than 3 extras overflow into a row above ⌫ 0 FIRE', () => {
+    const pad = numericPadLayout({ kind: 'numeric', maxLength: 5, allow: '-./^' })
+    expect(rows(pad)).toEqual(['1 2 3 -', '4 5 6 .', '7 8 9 /', '^ _ _ _', 'backspace 0 fire*2'])
+  })
+
+  test('text pad: 6 columns, letters then space ⌫ extras, digits last with FIRE bottom-right', () => {
+    const plain = textPadLayout({ kind: 'text', maxLength: 12 })
+    expect(plain.columns).toBe(6)
+    expect(rows(plain)).toEqual([
+      'a b c d e f',
+      'g h i j k l',
+      'm n o p q r',
+      's t u v w x',
+      'y z   backspace _ _',
+      '1 2 3 4 5 6',
+      '7 8 9 0 fire*2',
+    ])
+    // A kindermath-style wide set ('x' and ' ' are already on the pad): still 8 rows.
+    const wide = rows(textPadLayout({ kind: 'text', maxLength: 16, allow: '-./x^=+() ' }))
+    expect(wide.slice(4)).toEqual(['y z   backspace - .', '/ ^ = + ( )', '1 2 3 4 5 6', '7 8 9 0 fire*2'])
+    expect(rows(textPadLayout(text)).slice(4, 6)).toEqual(['y z   backspace - .', '/ ^ _ _ _ _'])
+  })
+
+  test('every row of every pad is exactly `columns` wide', () => {
+    const specs: AnswerInputSpec[] = [numeric, text, { kind: 'numeric', maxLength: 5, allow: '-./^+=' }, { kind: 'text', maxLength: 16, allow: '-./^=+()<>!?' }]
+    for (const spec of specs) {
+      const pad = spec.kind === 'numeric' ? numericPadLayout(spec) : textPadLayout(spec)
+      const width = pad.cells.reduce((w, c) => w + (c?.span ?? 1), 0)
+      expect(width % pad.columns).toBe(0)
+      expect(pad.cells.filter((c) => c?.kind === 'fire').length).toBe(1)
+    }
   })
 })
 
