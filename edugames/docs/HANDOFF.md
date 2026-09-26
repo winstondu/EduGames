@@ -28,9 +28,17 @@ Built and merged (317 tests, typecheck + lint clean):
 - **Headless harness** — `src/games/space-shooter/harness/` + `bun run sim`
   (bots random/wrong/oracle, `--repl`, replays, invariant soak tests).
 
-**Not done:** the integration play-test in the real browser was stopped midway (it had
-merged view + UI and fixed the bolt-targeting bug). The rendered game has NOT been
-play-tested end-to-end yet. Review/fix pass not run.
+**Browser play-test (session 2, partial):** launcher → start screen → math MC + freeform
+runs → game over were driven with Playwright in headless Chromium (swiftshader). Rendering,
+HUD, target ring, quiver bubble, choice strip and game-over dialog all work; no console errors.
+Fixed: game over showed the nickname prompt under `unrecorded=1` — GameOver now hides it and
+`submitScore` refuses to send (`HighScoreError` kind `'unrecorded'`, test in
+`src/shared/highscores/client.test.ts`). The scene now paces steps with `createTimeController`
+and takes a `step` override (`GameView.time`, `GameViewOptions.speed/step`) — groundwork for
+part 2 below. Not yet covered: RTL, lanes 3/5, ships, powerups, pause/settings dialog, phone
+layout, kindermath lessons (needs the password). DOM-only bots are too slow for real-time
+play — finish `window.__edugames` first, then play-test through it.
+Review/fix pass not run.
 
 ## Verification layers (the plan)
 
@@ -41,9 +49,14 @@ play-tested end-to-end yet. Review/fix pass not run.
 2. **Text-layer game harness** — built (`bun run sim`, `--repl`). TODO: expose it as
    tools for an LLM agent (e.g. a Sonnet driver) — either WebMCP on the DEV page or a
    small stdio MCP server wrapping the same `GameHarness` API (`state/send/act/events/time`).
-3. **Real-game harness** (part 2, TODO):
-   - Replace the view loop's stepper with `createTimeController`; in DEV the loop calls
-     `harness.tick()` instead of `engine.step()` (single check broker — don't run two).
+3. **Real-game harness** (part 2, TODO — next up):
+   - DONE: the view loop uses `createTimeController` (`GameView.time`). TODO: in DEV pass
+     `step: harness.tick` to `createGameView` and skip the session's own check broker
+     (single broker — don't run two). Plan: route verdict/`send()` events from
+     `harness.subscribe` (outside a view tick) into `view.pushEvents` + the session pipeline;
+     `advanceSteps(n)` resolves when `harness.stepIndex` reaches the target;
+     `onTimeChange` → `view.time.setScale/setLockstep`; `harness.time.step(n)` runs ticks
+     directly (the scene shows alpha = 1 in lockstep, so that's fine).
    - Player settings: add `speed: GameSpeed` (1/0.75/0.5/0.25) and key presets via
      `<KeymapEditor>`; route keyboard through `keymap.match(e, {textEntry})` +
      `mapActionToCommand` (replace `ui/controls.ts` hard-coded mapping).
@@ -76,6 +89,12 @@ play-tested end-to-end yet. Review/fix pass not run.
 
 ## Environment notes
 
+- Cloud sessions: use the **WinstonKinderMath** environment; it should carry
+  `KINDERMATH_DEMO_PASSWORD` as an env var. At start: `cp api/.dev.vars.example api/.dev.vars`
+  and fill the password line from `$KINDERMATH_DEMO_PASSWORD` (never print it). Playwright:
+  `/opt/node22/lib/node_modules/playwright/index.mjs`, `executablePath: '/opt/pw-browsers/chromium'`,
+  args `--use-gl=swiftshader --enable-unsafe-swiftshader`. The user wants **Sonnet subagents**
+  for play-testing (report-only; they must use `unrecorded=1`).
 - Secrets are NOT in git: `api/.dev.vars` (copy from `.dev.vars.example`; the demo
   password must be provided by the user). Without it, kindermath lesson routes 502 at login;
   `courses` still works.
