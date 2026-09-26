@@ -29,6 +29,6 @@
   },
   // Local dev: without this, wrangler rewrites request.url to the custom domain above, so the manifest
   // would point plugin entries at http://api.games.winstondu.com instead of the local API_BASE.
-  "dev": { "port": 8787, "host": "localhost:8787", "upstream_protocol": "http" },
+  "dev": { "port": 8788, "host": "localhost:8788", "upstream_protocol": "http" },
   "observability": { "enabled": true }
 }

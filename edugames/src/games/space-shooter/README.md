@@ -52,3 +52,10 @@ Dependency rule: `engine` → `generators/types` only. `render` → `engine`,
 concrete generators. Generators import only `generators/types`, `shared/rng`,
 `shared/mathtext` — never games, React, or Excalibur. Nothing under
 `src/generators/` or `api/` may mention a specific game.
+
+## Local dev ports
+
+- Frontend: `bun run dev` → http://localhost:5173
+- API Worker: `bun run dev:api` → **http://localhost:8788** (the frontend's dev `API_BASE`).
+  Port 8787 is deliberately avoided — another local app may already listen there.
+  Override with `VITE_API_BASE` if needed.

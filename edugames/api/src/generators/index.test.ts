@@ -94,9 +94,9 @@ describe('GET /v1/generators', () => {
   })
 
   test('local wrangler dev: entries follow the request origin', async () => {
-    const res = await handleGeneratorRequest(new Request('http://localhost:8787/v1/generators/'), env(), ctx)
+    const res = await handleGeneratorRequest(new Request('http://localhost:8788/v1/generators/'), env(), ctx)
     const manifest = (await body(res)) as GeneratorManifest
-    expect(manifest.generators[0].entry).toBe('http://localhost:8787/plugins/math.aaaa111111.js')
+    expect(manifest.generators[0].entry).toBe('http://localhost:8788/plugins/math.aaaa111111.js')
   })
 
   test('dev: entries point at the Vite dev server sources', async () => {
