@@ -13,7 +13,7 @@
     "dev:api": "bun run generators:build && wrangler dev -c api/wrangler.jsonc --port 8788",
     "db:migrate:local": "wrangler d1 migrations apply edugames --local -c api/wrangler.jsonc",
     "deploy:api": "bun run generators:build && wrangler deploy -c api/wrangler.jsonc",
-    "test": "bun test src",
+    "test": "bun test ./src ./api",
     "typecheck": "tsc -b",
     "generators:build": "bun scripts/build-generators.ts",
     "sim": "bun scripts/sim.ts",
