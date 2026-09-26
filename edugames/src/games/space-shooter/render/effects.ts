@@ -51,6 +51,9 @@ const HIT_WORDS = ['POW!', 'ZAP!', 'BAM!', 'KA-POW!', 'WHAM!', 'BOOM!']
 const INK = ex.Color.fromHex(PALETTE.ink)
 const MAX_PARTICLES = 220
 
+/** Seconds between stacked powerup callouts. */
+const CALLOUT_GAP = 0.6
+
 export class EffectsActor extends ex.Actor {
   private readonly direction: Direction
   private readonly sign: 1 | -1
@@ -76,6 +79,7 @@ export class EffectsActor extends ex.Actor {
 
   /** Advance effect clocks (seconds of unpaused animation). */
   advance(dt: number): void {
+    this.clock += dt
     for (const e of this.effects) e.age += dt
     const alive: Effect[] = []
     for (const e of this.effects) {
@@ -159,7 +163,10 @@ export class EffectsActor extends ex.Actor {
           const ship = lookup.ship()
           const label = `${POWERUP_ICONS[e.kind].label.toUpperCase()}!`
           this.ring(ship.x, ship.y, 40, 170, PALETTE.star, 0.5, 9)
-          this.floatText(e.fromRandom ? `? ${label}` : label, ship.x + this.sign * 40, ship.y - 76, 40, PALETTE.star, { rise: 70, life: 1.4 })
+          // Pickups in quick succession call out one after another instead of on top of each other.
+          const delay = Math.max(0, this.calloutFreeAt - this.clock)
+          this.calloutFreeAt = this.clock + delay + CALLOUT_GAP
+          this.floatText(e.fromRandom ? `? ${label}` : label, ship.x + this.sign * 40, ship.y - 76, 40, PALETTE.star, { rise: 70, life: 1.4, delay })
           break
         }
         case 'levelUp':
@@ -179,6 +186,11 @@ export class EffectsActor extends ex.Actor {
   }
 
   // ── primitives ─────────────────────────────────────────────────────────
+
+  /** Effect time (seconds), for sequencing callouts. */
+  private clock = 0
+  /** When the next powerup callout may start. */
+  private calloutFreeAt = 0
 
   private add(life: number, draw: DrawFn, done?: () => void, delay = 0): void {
     this.effects.push({ age: -delay, life, draw, done })

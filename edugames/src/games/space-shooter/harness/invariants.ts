@@ -3,6 +3,7 @@
  * Feed it every (events, state) pair — e.g. via `harness.subscribe` or
  * runReplay's `onTick`.
  */
+import { LANE_GAP_DIAMETERS } from '../engine/spawner'
 import { CHECK_TIMEOUT_SECONDS, MAX_LIVES, STEP_SECONDS, type GameEvent, type GameState } from '../engine/types'
 
 /** Slack on the check timeout (a verdict may land on the step after the deadline). */
@@ -71,6 +72,13 @@ export function createInvariantChecker(): InvariantChecker {
         }
       }
       for (const id of pendingSince.keys()) if (!seen.has(id)) pendingSince.delete(id)
+      for (const a of s.asteroids) {
+        for (const b of s.asteroids) {
+          if (a.id < b.id && a.lane === b.lane && Math.abs(a.x - b.x) < LANE_GAP_DIAMETERS * (a.radius + b.radius) - 1e-6) {
+            fail(`t=${t.toFixed(2)}: asteroids ${a.id} and ${b.id} overlap in lane ${a.lane}`)
+          }
+        }
+      }
     },
   }
 }

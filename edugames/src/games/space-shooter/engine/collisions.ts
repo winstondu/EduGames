@@ -3,7 +3,7 @@ import type { EngineContext } from './context'
 import { collisionLane, hasEffect, removeAsteroid } from './context'
 import { WRONG_FLASH_SECONDS, requestCheck } from './checks'
 import { takeDamage } from './scoring'
-import { spinRate } from './spawner'
+import { LANE_GAP_DIAMETERS, spinRate } from './spawner'
 import { WORLD, type AsteroidState, type BoltState } from './types'
 
 export const BOLT_SPEED = 1400
@@ -18,6 +18,27 @@ export function moveAsteroids(ctx: EngineContext, dt: number): void {
     if (a.wrongFlash > 0) {
       a.wrongFlash += dt
       if (a.wrongFlash >= WRONG_FLASH_SECONDS) a.wrongFlash = 0
+    }
+  }
+  keepLaneGaps(ctx.state.asteroids)
+}
+
+/**
+ * Faster rocks queue behind slower ones instead of catching up: within a
+ * lane, no asteroid gets closer than the spawn gap to the one ahead of it
+ * (their labels would overlap).
+ */
+function keepLaneGaps(asteroids: AsteroidState[]): void {
+  if (asteroids.length < 2) return
+  const byLane = new Map<number, AsteroidState[]>()
+  for (const a of asteroids) byLane.set(a.lane, [...(byLane.get(a.lane) ?? []), a])
+  for (const rocks of byLane.values()) {
+    if (rocks.length < 2) continue
+    rocks.sort((p, q) => p.x - q.x || p.id - q.id)
+    for (let i = 1; i < rocks.length; i++) {
+      const ahead = rocks[i - 1]
+      const minX = ahead.x + LANE_GAP_DIAMETERS * (ahead.radius + rocks[i].radius)
+      if (rocks[i].x < minX) rocks[i].x = minX
     }
   }
 }

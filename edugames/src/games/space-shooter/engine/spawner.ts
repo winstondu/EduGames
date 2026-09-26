@@ -10,7 +10,7 @@ export const FIRST_SPAWN_SECONDS = 1
 /** Retry delay when no lane is free or the cap is reached. */
 const RETRY_SECONDS = 0.25
 /** A new asteroid keeps this many diameters from others in its lane. */
-const LANE_GAP_DIAMETERS = 1.5
+export const LANE_GAP_DIAMETERS = 1.5
 /** Per-asteroid speed jitter (±). */
 const SPEED_JITTER = 0.08
 /** Max spin, radians / s. */
