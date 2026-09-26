@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="80" viewBox="0 0 128 80">
+  <g stroke="#1b1b2f" stroke-linejoin="round" stroke-linecap="round">
+    <!-- top wing: base, leading-edge highlight, trailing-edge shadow, yellow tip -->
+    <path d="M68 32 L28 6 C24 4 18 5 18 8 L38 32 Z" fill="#5fb4ff" stroke-width="4"/>
+    <path d="M66.5 31 L28.5 6.3 L25.8 9.4 L62 31 Z" fill="#b3e2ff" stroke="none"/>
+    <path d="M22 12.8 L37.2 31 L42.5 31 L25.1 10.2 Z" fill="#3a86d6" stroke="none"/>
+    <path d="M34 10 L28 6 C24 4 18 5 18 8 L22 12.8 Z" fill="#ffd23f" stroke-width="2.5"/>
+    <!-- bottom wing (shadow side) -->
+    <path d="M68 48 L28 74 C24 76 18 75 18 72 L38 48 Z" fill="#3a86d6" stroke-width="4"/>
+    <path d="M66.5 49 L28.5 73.7 L25.8 70.6 L62 49 Z" fill="#5fb4ff" stroke="none"/>
+    <path d="M22 67.2 L37.2 49 L42.5 49 L25.1 69.8 Z" fill="#2a64b0" stroke="none"/>
+    <path d="M34 70 L28 74 C24 76 18 75 18 72 L22 67.2 Z" fill="#e0a800" stroke-width="2.5"/>
+    <!-- engine bell + lip (flame is drawn by the renderer at 12,40) -->
+    <path d="M11 32 L25 35 L25 45 L11 48 Z" fill="#7a809c" stroke-width="4"/>
+    <path d="M12 34 L24 36.6 L24 38.2 L12 36.4 Z" fill="#b4b9d0" stroke="none"/>
+    <path d="M12 41.5 L24 41.5 L24 43.8 L12 46.6 Z" fill="#50556e" stroke="none"/>
+    <rect x="7" y="30" width="6" height="20" rx="2.5" fill="#6b7090" stroke-width="4"/>
+    <rect x="8.6" y="32.4" width="2" height="7" rx="1" fill="#b4b9d0" stroke="none"/>
+    <rect x="8.6" y="42" width="2.8" height="6" rx="1" fill="#50556e" stroke="none"/>
+    <!-- body -->
+    <path d="M22 32 C34 30 50 29 66 29 C78 29 88 29.6 96 30.5 L100 40 L96 49.5 C88 50.4 78 51 66 51 C50 51 34 50 22 48 Z" fill="#2d5bd7" stroke-width="4"/>
+    <path d="M24 42.5 L98.9 42.5 L96 49.5 C88 50.4 78 51 66 51 C50 51 34 50 24 48.5 Z" fill="#1e3d99" stroke="none"/>
+    <path d="M27 33.2 C40 31.6 54 31 66 31 C78 31 86 31.4 93 32.2 L93.6 34 C80 33.2 50 33.4 27 35.4 Z" fill="#6f9dff" stroke="none"/>
+    <path d="M31 31.2 C29.6 36 29.6 44 31 48.8" fill="none" stroke-width="2.5"/>
+    <circle cx="38" cy="36.5" r="1.2" fill="#1b1b2f" stroke="none"/>
+    <circle cx="45" cy="36.5" r="1.2" fill="#1b1b2f" stroke="none"/>
+    <!-- yellow chevron stripe -->
+    <path d="M96 30.5 L104 32.5 L108 40 L104 47.5 L96 49.5 L100 40 Z" fill="#ffd23f" stroke-width="2.5"/>
+    <path d="M100 40 L108 40 L104 47.5 L96 49.5 Z" fill="#e0a800" stroke="none"/>
+    <path d="M98 32.4 L102.6 33.6 L105.2 38.4 L100.8 38.4 Z" fill="#fff1a8" stroke="none"/>
+    <!-- sky-blue nose cone -->
+    <path d="M104 32.5 Q114 35 124 40 Q114 45 104 47.5 L108 40 Z" fill="#74c7ff" stroke-width="2.5"/>
+    <path d="M108 40 L124 40 Q114 45 104 47.5 Z" fill="#3a9be0" stroke="none"/>
+    <ellipse cx="113" cy="37" rx="3" ry="1.2" fill="#d6f2ff" stroke="none"/>
+    <!-- teardrop canopy -->
+    <path d="M56 40 C64 34 74 32.5 82 33 C89 33.5 91 37 91 40 C91 43 89 46.5 82 47 C74 47.5 64 46 56 40 Z" fill="#9be8ff" stroke-width="2.5"/>
+    <path d="M58 40.5 L90 40.5 C90 43 88 45.5 82 46 C74 46.5 65 45.5 58 40.5 Z" fill="#4fb6e8" stroke="none"/>
+    <path d="M76 35.6 C81 35.2 85 35.8 87.4 38" fill="none" stroke="#ffffff" stroke-width="2"/>
+    <!-- outer silhouette ink, redrawn over the tone patches -->
+    <path d="M22 32 C34 30 50 29 66 29 C78 29 88 29.6 96 30.5 L104 32.5 Q114 35 124 40 Q114 45 104 47.5 L96 49.5 C88 50.4 78 51 66 51 C50 51 34 50 22 48 Z" fill="none" stroke-width="4"/>
+  </g>
+</svg>
