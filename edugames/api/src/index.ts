@@ -4,7 +4,8 @@
  *   GET  /v1/health
  *   GET  /v1/scores, POST /v1/scores    → scores.ts (D1)
  *   *    /v1/generators, /v1/generators/* → generators/index.ts (manifest + hybrid pass-throughs)
- *   GET  /plugins/*                     → built plugin modules from ASSETS (+ CORS, for cross-origin import())
+ *   GET  /plugins/*                     → built plugin modules: served as static assets (public/_headers sets
+ *                                         CORS + cache); this Worker only sees asset misses (404 + CORS)
  * CORS: the request Origin is reflected (with credentials) only if listed in ALLOWED_ORIGINS.
  */
 import { handleGeneratorRequest } from './generators/index'

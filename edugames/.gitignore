@@ -26,6 +26,7 @@ dist-ssr
 # wrangler
 .wrangler
 .dev.vars*
+!.dev.vars.example
 
 # generator bundles (bun run generators:build)
 api/public/plugins/

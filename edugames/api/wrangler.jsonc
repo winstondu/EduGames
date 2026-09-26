@@ -8,12 +8,12 @@
   "routes": [
     { "pattern": "api.games.winstondu.com", "custom_domain": true }
   ],
-  // Built generator plugin modules + plugins/manifest.json. /plugins/* runs through the Worker first so
-  // module responses get CORS headers (games import() them cross-origin).
+  // Built generator plugin modules + plugins/manifest.json (bun run generators:build). /plugins/* is served
+  // directly as static assets so public/_headers applies (CORS `*` for cross-origin import(), immutable
+  // cache for hashed bundles). Everything else (/v1/*) falls through to the Worker.
   "assets": {
     "directory": "./public",
-    "binding": "ASSETS",
-    "run_worker_first": ["/plugins/*"]
+    "binding": "ASSETS"
   },
   // database_id is omitted on purpose: `wrangler deploy` provisions the D1 database on first deploy
   // and writes the id back here. Local dev (`--local`) needs no id.
@@ -22,8 +22,13 @@
   ],
   "vars": {
     "KINDERMATH_API_BASE": "https://api.kindermath.org/v1",
+    // STUB auth: demo identity the kindermath server half sends upstream until real per-user login lands.
+    "KINDERMATH_DEV_USER_EMAIL": "teacher@demo-academy.test",
     // Comma-separated browser origins allowed by CORS. Override in .dev.vars for local dev.
     "ALLOWED_ORIGINS": "https://games.winstondu.com"
   },
+  // Local dev: without this, wrangler rewrites request.url to the custom domain above, so the manifest
+  // would point plugin entries at http://api.games.winstondu.com instead of the local API_BASE.
+  "dev": { "port": 8787, "host": "localhost:8787", "upstream_protocol": "http" },
   "observability": { "enabled": true }
 }

@@ -1,18 +1,17 @@
-import { describe, expect, mock, test } from 'bun:test'
+import { afterAll, describe, expect, spyOn, test } from 'bun:test'
 import type { GeneratorManifest } from '../../../src/generators/types'
-import type { GeneratorEnv, GeneratorServer } from './types'
+import { handleGeneratorRequest } from './index'
+import { kindermathServer } from './kindermath'
+import type { GeneratorEnv } from './types'
 
-// Stand-in for the kindermath server half so these tests cover only the hosting layer.
+// Stub the kindermath server half so these tests cover only the hosting layer. spyOn (not
+// mock.module, which leaks across test files in one bun process) and restore afterwards.
 const seen: { subpath: string; method: string }[] = []
-const kindermathServer: GeneratorServer = {
-  id: 'kindermath',
-  async handle(request, subpath) {
-    seen.push({ subpath, method: request.method })
-    return Response.json({ ok: true, subpath })
-  },
-}
-mock.module('./kindermath', () => ({ kindermathServer }))
-const { handleGeneratorRequest } = await import('./index')
+const handleSpy = spyOn(kindermathServer, 'handle').mockImplementation(async (request, subpath) => {
+  seen.push({ subpath, method: request.method })
+  return Response.json({ ok: true, subpath })
+})
+afterAll(() => handleSpy.mockRestore())
 type BuiltManifest = import('./index').BuiltManifest
 
 const built: BuiltManifest = {

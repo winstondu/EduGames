@@ -8,7 +8,7 @@ A correct answer destroys the asteroid; a wrong one fizzles and breaks the
 streak. An asteroid reaching the leading edge costs a life (shield absorbs).
 
 URL: `/space-shooter?gen=<generatorId>&<generator options>`
-(e.g. `?gen=math&mode=choice&ops=add,sub`, `?gen=kindermath&lesson=<uuid>`)
+(e.g. `?gen=math&format=mc&ops=add,sub`, `?gen=kindermath&lesson=<uuid>`)
 
 Answer input is decided **per problem**: a problem with `choices` lists them in
 a strip along the leading edge (pick with 1–4 or tap → fires); otherwise the
@@ -29,7 +29,7 @@ kindermath lesson. The space shooter supports both problem formats.
 src/games/types.ts         GameDefinition (formats it supports); src/games/registry.ts lists games
 src/generators/            plugin contract + registry (no game/DOM imports)
   types.ts                 GeneratorPlugin, ProblemSource, Problem, manifest
-  registry.ts              manifest fetch → same-origin dynamic import
+  registry.ts              manifest fetch → dynamic import from the API origin (CORS)
   math/                    client plugin: generator.ts, checker.ts, index.ts
   kindermath/              hybrid plugin (browser half)
 src/shared/kit/            game-agnostic: fixed stepper, check broker, HUD store, FSM, audio
