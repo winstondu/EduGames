@@ -1,11 +1,12 @@
 /**
- * High-score API contract, shared by the Worker (worker/) and the browser
- * client (src/shared/highscores/client.ts). One leaderboard per
+ * High-score API contract, shared by the API Worker (api/, served at
+ * https://api.games.winstondu.com) and the browser client
+ * (src/shared/highscores/client.ts, which prefixes API_BASE). One leaderboard per
  * (game, board) where `boardKey` comes from GeneratorPlugin.boardKey() —
  * e.g. "math/add-sub" or "kindermath/<lessonId>" (one board per lesson).
  *
- *   GET  /api/scores?game=<gameId>&board=<boardKey>&limit=<1..50>  → LeaderboardResponse
- *   POST /api/scores  body: ScoreSubmission                          → SubmitScoreResponse
+ *   GET  /v1/scores?game=<gameId>&board=<boardKey>&limit=<1..50>  → LeaderboardResponse
+ *   POST /v1/scores   body: ScoreSubmission                          → SubmitScoreResponse
  *
  * Errors: non-2xx with ApiError JSON. Nickname only — no accounts.
  */

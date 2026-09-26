@@ -15,7 +15,7 @@
  * for right-to-left play. Lanes are indexed 0..lanes-1 from top to bottom.
  * The ship collides in lane `Math.round(ship.laneY)`.
  */
-import type { AnswerInputSpec, CheckResult, Choice, Problem, ProblemSource } from '../../../generators/types'
+import type { AnswerInputSpec, CheckResult, Choice, Problem, ProblemFormat, ProblemSource } from '../../../generators/types'
 
 export type Direction = 'ltr' | 'rtl'
 
@@ -27,7 +27,7 @@ export const WORLD = {
   /** Reserved band at the top for the HUD / question banner. */
   hudTop: 96,
   hudBottom: 24,
-  /** Width of the choice strip hugging the leading edge (multiple-choice problems). */
+  /** Width of the choice strip hugging the leading edge ('multiple-choice' problems). */
   choiceStripWidth: 150,
   /** Ship centre, measured from the leading edge (just inside the choice strip). */
   shipX: 250,
@@ -76,7 +76,7 @@ export const POWERUP_KINDS: readonly PowerupKind[] = [
 export interface GameConfig {
   lanes: number // MIN_LANES..MAX_LANES
   problems: ProblemSource
-  /** Input spec for typed problems that don't carry their own. */
+  /** Input spec for freeform problems that don't carry their own. */
   defaultInput: AnswerInputSpec
   maxLevel: number
   seed: number
@@ -113,7 +113,7 @@ export interface BoltState {
   id: number
   lane: number
   x: number
-  /** What gets checked: choice id (multiple choice) or typed text. */
+  /** What gets checked: choice id ('multiple-choice') or entered text ('freeform'). */
   given: string
   /** What the bolt displays: choice text or typed text (may contain $…$). */
   display: string
@@ -156,11 +156,11 @@ export interface GameState {
   shield: number
   /** Nearest non-pending asteroid in the ship's lane, or null. */
   targetId: number | null
-  /** How the current target is answered: its problem has choices → 'choice', else 'typed'; null without target. */
-  inputMode: 'typed' | 'choice' | null
-  /** Choices of the target's problem ([] unless inputMode === 'choice'). */
+  /** Format of the current target's problem; null without target. */
+  inputMode: ProblemFormat | null
+  /** Choices of the target's problem ([] unless inputMode === 'multiple-choice'). */
   choices: Choice[]
-  /** Typed answer being composed in the quiver bubble (cleared on fire / retarget). */
+  /** Freeform answer being composed in the quiver bubble (cleared on fire / retarget). */
   quiver: string
   /** Input spec in force for the quiver (target's, else config.defaultInput). */
   input: AnswerInputSpec
@@ -172,13 +172,13 @@ export type Command =
   | { type: 'moveUp' }
   | { type: 'moveDown' }
   | { type: 'moveToLane'; lane: number }
-  /** Typed mode: append a character to the quiver (filtered by `state.input`). */
+  /** Freeform: append a character to the quiver (filtered by `state.input`). */
   | { type: 'typeChar'; char: string }
   | { type: 'backspace' }
   | { type: 'clearQuiver' }
-  /** Fire the quiver's typed answer down the ship's lane. No-op if empty. */
+  /** Fire the quiver's freeform answer down the ship's lane. No-op if empty. */
   | { type: 'fire' }
-  /** Multiple choice: fire choices[index] down the ship's lane. */
+  /** Multiple-choice: fire choices[index] down the ship's lane. */
   | { type: 'choose'; index: number }
   /** Result of a `checkRequested`; `null` result = check failed (network) → void the shot, no penalty. */
   | { type: 'resolveCheck'; checkId: number; result: CheckResult | null }

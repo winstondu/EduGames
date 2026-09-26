@@ -1,23 +1,51 @@
 /**
- * Problem-generator plugin contract.
+ * Problem-generator plugin contract — shared by ALL games (m games + n
+ * generators, not m × n). Nothing here may be game-specific.
  *
  * Games never bundle or import a concrete generator. The URL carries a
  * generator id (`/space-shooter?gen=kindermath&lesson=<uuid>`); the registry
- * fetches the manifest from our server (`GET /api/generators`) and dynamically
- * imports the plugin module it names. A plugin is either:
+ * fetches the manifest from our API Worker (`GET <API_BASE>/v1/generators`,
+ * API_BASE = https://api.games.winstondu.com in prod) and dynamically imports
+ * the plugin module it names. A plugin is either:
  *  - 'client': all logic runs in the browser (e.g. `math`), or
  *  - 'hybrid': the browser half talks to its own server half through
- *    `ctx.api(...)` → `/api/generators/<id>/...` on our Worker, which passes
- *    through to upstream services (e.g. api.kindermath.org) — same-origin, so
- *    no CORS is needed upstream and credentials stay server-side.
+ *    `ctx.api(...)` → `<API_BASE>/v1/generators/<id>/...`, which passes
+ *    through to upstream services (e.g. api.kindermath.org). Our API allows
+ *    CORS from our game origins, so upstreams never need to, and credentials
+ *    stay server-side.
+ *
+ * Compatibility: every Problem has a `format`. Plugins declare the formats
+ * they can emit; games declare the formats they support (src/games/types.ts)
+ * and pass them as `requirements` to create().
  *
  * Everything here is string-based and DOM-free; plugin modules must not import
  * game, engine, render, or React code.
  */
 import type { Rng } from '../shared/rng'
 
-/** How the player supplies an answer for one problem. */
-export type AnswerMode = 'typed' | 'choice'
+/**
+ * How a problem is answered:
+ *  - 'freeform': the player enters an answer (typed/keypad); `input` applies.
+ *  - 'multiple-choice': the player picks one of `choices`.
+ * New formats (ordering, matching, …) get added here; games opt in explicitly.
+ */
+export type ProblemFormat = 'freeform' | 'multiple-choice'
+
+export const PROBLEM_FORMATS: readonly ProblemFormat[] = ['freeform', 'multiple-choice']
+
+/** What a game can present; passed to create() so the plugin only emits usable problems. */
+export interface ProblemRequirements {
+  formats: readonly ProblemFormat[]
+}
+
+/**
+ * Reject create() with this when requirements can't be met (e.g. an all-freeform
+ * lesson in an MC-only game). Plugins bundle their own copy, so hosts must test
+ * `err.name === 'IncompatibleGeneratorError'`, not `instanceof`.
+ */
+export class IncompatibleGeneratorError extends Error {
+  override name = 'IncompatibleGeneratorError'
+}
 
 export interface Choice {
   /** Opaque id sent back as `given` in check(). */
@@ -44,13 +72,14 @@ export interface Problem {
    * Short prompts ("6+7") are drawn on the asteroid; long ones in a banner.
    */
   prompt: string
-  /** Optional ≤ 8-char asteroid label for long prompts (renderer falls back to "?"). */
+  /** Optional ≤ 8-char short label for games with little room (falls back to "?" when prompt is long). */
   label?: string
   /** Difficulty level the problem belongs to (1 = easiest). */
   level: number
-  /** Present → multiple choice: the player picks one and its `id` is checked. Absent → typed. */
+  format: ProblemFormat
+  /** Required iff format === 'multiple-choice'; the chosen `id` is what gets checked. */
   choices?: Choice[]
-  /** Typed problems: input spec (defaults to the plugin's `defaultInput`). */
+  /** Freeform problems: input spec (defaults to the plugin's `defaultInput`). */
   input?: AnswerInputSpec
   /** Optional hint the UI may reveal. */
   hint?: string
@@ -74,7 +103,7 @@ export interface ProblemSource {
   next(level: number): Problem
   /**
    * Check an answer. `given` is a choice id for multiple-choice problems, or
-   * the raw typed text otherwise. Hybrid plugins may return a Promise
+   * the raw entered text for freeform ones. Hybrid plugins may return a Promise
    * (server-side checking); the game treats the shot as pending until it settles.
    */
   check(problem: Problem, given: string): CheckResult | Promise<CheckResult>
@@ -87,8 +116,8 @@ export interface GeneratorContext {
   /** Seeded RNG for this session (use instead of Math.random). */
   rng: Rng
   /**
-   * fetch() scoped to this plugin's server half, same-origin with cookies:
-   * `ctx.api('lessons/abc/practice')` → `GET /api/generators/<id>/lessons/abc/practice`.
+   * fetch() scoped to this plugin's server half (credentials included):
+   * `ctx.api('lessons/abc/practice')` → `GET <API_BASE>/v1/generators/<id>/lessons/abc/practice`.
    * Client-only plugins never call it.
    */
   api(path: string, init?: RequestInit): Promise<Response>
@@ -137,13 +166,16 @@ export interface GeneratorPlugin<Options = unknown> {
   description: string
   kind: 'client' | 'hybrid'
   maxLevel: number
-  /** Default input spec for typed problems. */
+  /** Default input spec for freeform problems. */
   defaultInput: AnswerInputSpec
+  /** Every format this plugin can emit. Launchers hide game/generator pairs with no overlap. */
+  formats: readonly ProblemFormat[]
   /**
-   * Answer modes the player may choose between via the `mode` URL param
-   * (e.g. math: ['choice','typed']). Omit when the source fixes it per problem.
+   * true → the player may pick one format via the `format` URL param (e.g. math);
+   * false → the source decides per problem (e.g. kindermath lessons mix both).
+   * Either way create() must honor `requirements`.
    */
-  answerModes?: readonly AnswerMode[]
+  formatSelectable: boolean
   /** Read options from the URL; must tolerate missing/garbage params. Returns null if required params are missing. */
   parseOptions(params: URLSearchParams): Options | null
   /** Inverse of parseOptions (without `gen`). */
@@ -158,11 +190,16 @@ export interface GeneratorPlugin<Options = unknown> {
   /** Enumerate variants for a picker (e.g. kindermath courses → lessons). */
   listVariants?(ctx: GeneratorContext): Promise<GeneratorVariant[]>
   auth?: GeneratorAuth
-  /** Build a ProblemSource (hybrid plugins fetch their bank here). Reject with an Error whose message is user-presentable. */
-  create(options: Options, ctx: GeneratorContext): Promise<ProblemSource>
+  /**
+   * Build a ProblemSource (hybrid plugins fetch their bank here). Only emit
+   * problems whose format is in `requirements.formats`; reject with
+   * IncompatibleGeneratorError if that leaves nothing. Other rejections must
+   * carry a user-presentable message.
+   */
+  create(options: Options, ctx: GeneratorContext, requirements: ProblemRequirements): Promise<ProblemSource>
 }
 
-/** `GET /api/generators` response. */
+/** `GET <API_BASE>/v1/generators` response. */
 export interface GeneratorManifest {
   generators: GeneratorManifestEntry[]
 }
@@ -172,7 +209,8 @@ export interface GeneratorManifestEntry {
   name: string
   description: string
   kind: 'client' | 'hybrid'
+  formats: ProblemFormat[]
   version: string
-  /** Module URL to `import()`; its default export is a GeneratorPlugin. Same-origin only. */
+  /** Absolute module URL to `import()` (our API origin, or the Vite dev server in dev); default export is a GeneratorPlugin. */
   entry: string
 }
